@@ -2,7 +2,7 @@
 
 A standalone, browser-based pricing tool. Built for STEM kits, bundles, and any product where you need to think through BOM costs, channel margins, MRP positioning, and quotations — all in one place, with no backend.
 
-**Live:** https://<your-username>.github.io/aerolab-pricing/
+**Live:** https://kroniek.github.io/Pricing_Calculator/
 
 ## What it does
 
