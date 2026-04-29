@@ -1,0 +1,3102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kit Pricing Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #0c0d0f;
+  --s1: #131517;
+  --s2: #1a1c1f;
+  --s3: #222529;
+  --border: #2b2e33;
+  --border2: #363a40;
+  --text: #e1e3e8;
+  --muted: #6b7280;
+  --muted2: #9ca3af;
+  --lime: #84cc16;
+  --lime-dim: rgba(132,204,22,.12);
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,.12);
+  --red: #f87171;
+  --red-dim: rgba(248,113,113,.12);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245,158,11,.12);
+  --blue: #60a5fa;
+  --blue-dim: rgba(96,165,250,.12);
+  --purple: #a78bfa;
+  --purple-dim: rgba(167,139,250,.12);
+  --ff: 'Outfit', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --r: 8px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body { background: var(--bg); color: var(--text); font-family: var(--ff); min-height: 100vh; }
+input, select, button, textarea { font-family: var(--ff); font-size: 13px; }
+input[type=number]::-webkit-inner-spin-button { opacity: .4; }
+
+/* ── Topbar ── */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(12,13,15,.9); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.app-badge { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--lime); background: var(--lime-dim); padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+.kit-name-input {
+  flex: 1; min-width: 160px; max-width: 280px;
+  background: var(--s2); border: 1px solid var(--border); border-radius: var(--r);
+  color: var(--text); padding: 7px 12px; font-size: 14px; font-weight: 600; outline: none;
+  transition: border-color .15s;
+}
+.kit-name-input:focus { border-color: var(--lime); }
+.kit-type-group { display: flex; gap: 4px; flex-wrap: wrap; }
+.type-btn {
+  padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600;
+  transition: all .15s; white-space: nowrap;
+}
+.type-btn:hover { border-color: var(--border2); color: var(--text); }
+.type-btn.active { background: var(--lime-dim); border-color: var(--lime); color: var(--lime); }
+
+.quote-toggle {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--s2); cursor: pointer; user-select: none; transition: all .15s;
+}
+.quote-toggle:hover { border-color: var(--border2); }
+.quote-toggle.active { border-color: var(--purple); background: var(--purple-dim); }
+.quote-toggle-switch {
+  width: 28px; height: 16px; border-radius: 10px; background: var(--border2);
+  position: relative; transition: background .15s;
+}
+.quote-toggle-switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%; background: var(--text);
+  transition: transform .15s;
+}
+.quote-toggle.active .quote-toggle-switch { background: var(--purple); }
+.quote-toggle.active .quote-toggle-switch::after { transform: translateX(12px); }
+.quote-toggle-label { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.quote-toggle.active .quote-toggle-label { color: var(--purple); }
+
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.recalc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.live-label { font-size: 11px; color: var(--muted); letter-spacing: .06em; }
+
+/* ── Item Tabs ── */
+.item-tabs-bar {
+  display: none; padding: 12px 24px; gap: 6px;
+  background: var(--s1); border-bottom: 1px solid var(--border);
+  align-items: center; flex-wrap: wrap;
+}
+.item-tabs-bar.show { display: flex; }
+.item-tab {
+  padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--s2); color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; gap: 8px; transition: all .15s; white-space: nowrap;
+}
+.item-tab:hover { border-color: var(--border2); color: var(--text); }
+.item-tab.active { border-color: var(--purple); background: var(--purple-dim); color: var(--purple); }
+.item-tab .close-x {
+  width: 14px; height: 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; line-height: 1; opacity: .5; transition: opacity .15s;
+}
+.item-tab .close-x:hover { opacity: 1; background: rgba(248,113,113,.2); color: var(--red); }
+.item-tab-add {
+  padding: 6px 12px; border-radius: 6px; border: 1px dashed var(--border2);
+  background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600;
+}
+.item-tab-add:hover { border-color: var(--lime); color: var(--lime); }
+
+/* ── Layout ── */
+.layout {
+  display: grid; grid-template-columns: 1fr 380px;
+  gap: 0; min-height: calc(100vh - 53px);
+}
+@media(max-width:900px) { .layout { grid-template-columns: 1fr; } }
+
+.left-panel { padding: 24px; display: flex; flex-direction: column; gap: 16px; overflow-x: hidden; }
+
+.section { background: var(--s1); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.section-header {
+  display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+  border-bottom: 1px solid var(--border); cursor: pointer; user-select: none;
+}
+.section-icon { font-size: 16px; }
+.section-title { font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; flex: 1; }
+.section-meta { font-size: 12px; font-family: var(--mono); color: var(--muted); }
+.section-toggle { color: var(--muted); font-size: 16px; transition: transform .2s; }
+.section.collapsed .section-toggle { transform: rotate(-90deg); }
+.section-body { padding: 16px 18px; }
+.section.collapsed .section-body { display: none; }
+
+/* ── BOM Tree Rows ── */
+.bom-tree { display: flex; flex-direction: column; gap: 4px; }
+.bom-row {
+  display: grid; grid-template-columns: 16px 1fr 90px 80px 70px 80px 28px;
+  gap: 6px; align-items: center; padding: 4px 0;
+  border-radius: 4px; transition: background .15s;
+}
+.bom-row.lvl-0 { padding-left: 0; }
+.bom-row.lvl-1 { padding-left: 18px; position: relative; }
+.bom-row.lvl-2 { padding-left: 36px; position: relative; }
+.bom-row.lvl-1::before, .bom-row.lvl-2::before {
+  content: '└'; color: var(--muted); position: absolute; left: 6px; font-family: var(--mono); font-size: 11px; opacity: .6;
+}
+.bom-row.lvl-2::before { left: 24px; }
+
+.expand-btn {
+  width: 16px; height: 16px; border: none; background: transparent;
+  color: var(--muted); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; transition: transform .15s;
+}
+.expand-btn.no-children { visibility: hidden; }
+.expand-btn.collapsed { transform: rotate(-90deg); }
+
+.add-sub-btn {
+  background: transparent; border: 1px dashed var(--border); border-radius: 4px;
+  color: var(--muted); cursor: pointer; padding: 3px 8px; font-size: 10px; font-weight: 600;
+  letter-spacing: .04em; transition: all .15s; white-space: nowrap;
+}
+.add-sub-btn:hover { border-color: var(--lime); color: var(--lime); background: var(--lime-dim); }
+
+.row-grid-op { display: grid; grid-template-columns: 1fr 100px 28px; gap: 6px; align-items: center; margin-bottom: 8px; }
+.row-grid-addon { display: grid; grid-template-columns: 1fr 90px 80px 80px 28px; gap: 6px; align-items: center; margin-bottom: 8px; }
+.col-header { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding-bottom: 4px; }
+.row-labels { margin-bottom: 4px; }
+
+.inp {
+  background: var(--s2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 7px 9px; width: 100%; outline: none;
+  transition: border-color .15s; min-width: 0;
+}
+.inp:focus { border-color: var(--lime); }
+.inp-mono { font-family: var(--mono); }
+.inp-center { text-align: center; }
+.inp-right { text-align: right; }
+.inp-auto {
+  background: rgba(132,204,22,.06); color: var(--lime); font-weight: 600;
+  cursor: not-allowed; border-style: dashed;
+}
+.inp-auto:focus { border-color: var(--border); }
+
+select.inp {
+  cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center; padding-right: 24px;
+}
+
+.del-btn {
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: all .15s; flex-shrink: 0;
+}
+.del-btn:hover { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+
+.row-total { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--muted2); text-align: right; }
+
+.add-row-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px;
+  background: transparent; border: 1px dashed var(--border2); border-radius: 6px;
+  color: var(--muted); cursor: pointer; padding: 7px 12px; width: 100%; font-size: 12px;
+  font-weight: 600; letter-spacing: .04em; transition: all .15s;
+}
+.add-row-btn:hover { border-color: var(--lime); color: var(--lime); background: var(--lime-dim); }
+
+.section-total-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.section-total-label { font-size: 12px; font-weight: 600; color: var(--muted2); }
+.section-total-val { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); }
+
+.channel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+@media(max-width:500px) { .channel-grid { grid-template-columns: 1fr; } }
+.channel-card {
+  padding: 12px 14px; border-radius: var(--r); border: 1.5px solid var(--border);
+  background: var(--s2); cursor: pointer; transition: all .15s;
+}
+.channel-card:hover { border-color: var(--border2); }
+.channel-card.active { border-color: var(--lime); background: var(--lime-dim); }
+.channel-card input[type=radio] { display: none; }
+.channel-title { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.channel-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+.margin-section { display: flex; flex-direction: column; gap: 14px; }
+.margin-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.margin-label { font-size: 12px; color: var(--muted2); font-weight: 500; }
+.margin-value { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); }
+.margin-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 4px;
+  border-radius: 4px; background: var(--border2); outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--lime); border: 2px solid var(--bg); cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(132,204,22,.2); transition: transform .1s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+input[type=range].blue::-webkit-slider-thumb { background: var(--blue); box-shadow: 0 0 0 3px rgba(96,165,250,.2); }
+input[type=range].amber::-webkit-slider-thumb { background: var(--amber); box-shadow: 0 0 0 3px rgba(245,158,11,.2); }
+
+.hidden-margin { display: none; }
+
+.volume-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.volume-field label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+.volume-hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+.right-panel { border-left: 1px solid var(--border); background: var(--s1); }
+.results-sticky {
+  position: sticky; top: 53px;
+  max-height: calc(100vh - 53px); overflow-y: auto;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 14px;
+  scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+}
+@media(max-width:900px) {
+  .right-panel { border-left: none; border-top: 1px solid var(--border); }
+  .results-sticky { position: static; max-height: none; }
+}
+.results-sticky::-webkit-scrollbar { width: 8px; }
+.results-sticky::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+.r-card {
+  background: var(--s2); border: 1px solid var(--border); border-radius: var(--r);
+  padding: 16px;
+}
+.r-card-title {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+}
+.r-card-title .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+.r-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.r-row:last-child { margin-bottom: 0; }
+.r-label { font-size: 12px; color: var(--muted); }
+.r-val { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); }
+.r-val.lime { color: var(--lime); }
+.r-val.green { color: var(--green); }
+.r-val.red { color: var(--red); }
+.r-val.blue { color: var(--blue); }
+.r-val.amber { color: var(--amber); }
+.r-val.purple { color: var(--purple); }
+.r-divider { height: 1px; background: var(--border); margin: 10px 0; }
+
+.split-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.split-bar-wrap { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.split-bar { height: 100%; border-radius: 3px; transition: width .4s ease; }
+.split-name { font-size: 11px; color: var(--muted2); flex: 0 0 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-pct { font-family: var(--mono); font-size: 10px; color: var(--muted); flex: 0 0 36px; text-align: right; }
+.split-amt { font-family: var(--mono); font-size: 11px; color: var(--text); flex: 0 0 60px; text-align: right; }
+.split-empty { font-size: 12px; color: var(--muted); }
+
+.price-chain { display: flex; flex-direction: column; gap: 4px; }
+.chain-node {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+}
+.chain-node.you { border-color: rgba(132,204,22,.3); background: var(--lime-dim); }
+.chain-node.dist { border-color: rgba(96,165,250,.3); background: var(--blue-dim); }
+.chain-node.retail { border-color: rgba(245,158,11,.3); background: var(--amber-dim); }
+.chain-node.consumer { border-color: rgba(167,139,250,.3); background: var(--purple-dim); }
+.chain-who { font-size: 11px; font-weight: 600; }
+.chain-who.you { color: var(--lime); }
+.chain-who.dist { color: var(--blue); }
+.chain-who.retail { color: var(--amber); }
+.chain-who.consumer { color: var(--purple); }
+.chain-right { text-align: right; }
+.chain-price { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+.chain-margin { font-size: 10px; color: var(--muted); }
+.chain-arrow { text-align: center; color: var(--muted); font-size: 12px; }
+
+.reco-price-block {
+  background: linear-gradient(135deg, var(--lime-dim), var(--green-dim));
+  border: 1px solid rgba(132,204,22,.4); border-radius: var(--r);
+  padding: 14px 16px;
+}
+.reco-price-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--lime); margin-bottom: 4px; }
+.reco-price-val { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--text); line-height: 1; }
+.reco-price-sub { font-size: 11px; color: var(--muted2); margin-top: 6px; line-height: 1.55; }
+.reco-price-sub strong { color: var(--text); }
+
+.ceiling-block {
+  background: var(--amber-dim); border: 1px solid rgba(245,158,11,.4);
+  border-radius: var(--r); padding: 12px 14px;
+}
+.ceiling-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--amber); margin-bottom: 4px; }
+.ceiling-val { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--text); line-height: 1; }
+.ceiling-reason { font-size: 11px; color: var(--muted2); margin-top: 6px; line-height: 1.55; }
+
+.wf { display: flex; flex-direction: column; gap: 8px; }
+.wf-item-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.wf-name { font-size: 11px; color: var(--muted); }
+.wf-amt { font-family: var(--mono); font-size: 11px; color: var(--text); }
+.wf-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.wf-bar { height: 100%; border-radius: 3px; transition: width .4s ease; }
+
+.asset-row {
+  padding: 8px 10px; border-radius: 6px; background: var(--s3);
+  margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;
+}
+.asset-name { font-size: 12px; color: var(--muted2); }
+.asset-recover { font-family: var(--mono); font-size: 11px; color: var(--amber); }
+
+.reco-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.reco-list li { font-size: 12px; color: var(--muted); line-height: 1.6; display: flex; gap: 8px; }
+.reco-list li::before { content: '→'; color: var(--lime); flex-shrink: 0; font-weight: 700; }
+.reco-list li strong { color: var(--text); }
+
+.warn-badge { background: var(--red-dim); border: 1px solid rgba(248,113,113,.3); border-radius: var(--r); padding: 10px 12px; font-size: 12px; color: var(--red); display: none; }
+.warn-badge.show { display: block; }
+
+/* ── Market Data Card ── */
+.market-card {
+  background: var(--s2); border: 1px solid var(--border); border-radius: var(--r);
+  padding: 16px; position: relative;
+}
+.market-card .r-card-title { color: var(--blue); }
+.market-empty {
+  text-align: center; padding: 12px 8px;
+}
+.market-empty p { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
+.market-fetch-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, var(--blue), #4d8ce8);
+  border: none; border-radius: 6px; color: #fff;
+  padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: opacity .15s; letter-spacing: .03em;
+}
+.market-fetch-btn:hover { opacity: .9; }
+.market-fetch-btn:disabled { opacity: .5; cursor: wait; }
+.market-cost-note { font-size: 10px; color: var(--muted); margin-top: 8px; }
+
+.market-loading {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 18px 8px; text-align: center;
+}
+.market-spinner {
+  width: 22px; height: 22px; border: 2.5px solid var(--border); border-top-color: var(--blue);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.market-loading-msg { font-size: 12px; color: var(--muted2); }
+.market-loading-sub { font-size: 10px; color: var(--muted); }
+
+.market-stats-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;
+}
+.market-stat {
+  background: var(--s3); border-radius: 6px; padding: 8px 6px; text-align: center;
+}
+.market-stat-label { font-size: 9px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.market-stat-val { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--text); margin-top: 2px; }
+
+.market-position-bar {
+  height: 8px; background: var(--border); border-radius: 4px; position: relative; margin: 14px 0 6px;
+  overflow: visible;
+}
+.market-position-range {
+  position: absolute; height: 100%; background: linear-gradient(90deg, var(--green), var(--amber), var(--red));
+  border-radius: 4px;
+}
+.market-position-marker {
+  position: absolute; top: -4px; width: 3px; height: 16px; background: var(--lime);
+  border-radius: 2px; box-shadow: 0 0 0 2px var(--bg);
+}
+.market-position-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); font-family: var(--mono); }
+.market-position-text { font-size: 11px; color: var(--muted2); margin-top: 8px; line-height: 1.5; }
+.market-position-text strong { color: var(--text); }
+
+.market-products-list { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+.market-products-title { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.market-product {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; gap: 8px;
+}
+.market-product:not(:last-child) { border-bottom: 1px dashed var(--border); }
+.market-product-name { font-size: 11px; color: var(--text); flex: 1; line-height: 1.4; }
+.market-product-name a { color: var(--blue); text-decoration: none; }
+.market-product-name a:hover { text-decoration: underline; }
+.market-product-source { font-size: 9px; color: var(--muted); margin-top: 1px; }
+.market-product-price { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; }
+
+.market-summary {
+  margin-top: 12px; padding: 10px 12px; background: var(--blue-dim);
+  border-radius: 6px; font-size: 11px; color: var(--muted2); line-height: 1.55;
+}
+.market-summary strong { color: var(--blue); }
+
+.market-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 8px; flex-wrap: wrap; }
+.market-actions-left { display: flex; gap: 6px; flex-wrap: wrap; }
+.market-mini-btn {
+  background: transparent; border: 1px solid var(--border); border-radius: 5px;
+  color: var(--muted); cursor: pointer; padding: 4px 10px; font-size: 10px; font-weight: 600;
+  transition: all .15s;
+}
+.market-mini-btn:hover { color: var(--text); border-color: var(--border2); }
+.market-cache-tag { font-size: 9px; color: var(--muted); font-style: italic; }
+
+.market-error {
+  background: var(--red-dim); border: 1px solid rgba(248,113,113,.3); border-radius: 6px;
+  padding: 10px 12px; font-size: 11px; color: var(--red); line-height: 1.5;
+}
+.market-error strong { display: block; margin-bottom: 4px; }
+
+.quote-card {
+  background: linear-gradient(135deg, var(--purple-dim), rgba(96,165,250,.08));
+  border: 1px solid rgba(167,139,250,.4); border-radius: var(--r);
+  padding: 16px;
+}
+.quote-card .r-card-title { color: var(--purple); }
+.quote-item-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px dashed var(--border);
+}
+.quote-item-row:last-of-type { border-bottom: none; }
+.quote-item-name { font-size: 12px; color: var(--text); font-weight: 600; }
+.quote-item-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.quote-item-price { font-family: var(--mono); font-size: 13px; color: var(--text); text-align: right; font-weight: 600; }
+.quote-item-sub { font-size: 11px; color: var(--muted); text-align: right; }
+.quote-totals { margin-top: 12px; padding-top: 12px; border-top: 2px solid rgba(167,139,250,.3); }
+
+@media(max-width:600px) {
+  .bom-row { grid-template-columns: 16px 1fr 70px 60px 50px 60px 28px; gap: 4px; }
+  .add-sub-btn { font-size: 9px; padding: 2px 6px; }
+}
+
+/* ── PDF / Print Doc ── */
+.pdf-doc { display: none; }
+.cust-input {
+  background: var(--s2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 5px 10px; font-size: 12px; outline: none;
+  min-width: 180px; transition: border-color .15s;
+}
+.cust-input:focus { border-color: var(--purple); }
+
+/* ── Inventory Section ── */
+.inv-source-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+@media(max-width:600px) { .inv-source-grid { grid-template-columns: 1fr; } }
+.inv-card {
+  border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px;
+  background: var(--s2);
+}
+.inv-card h4 {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted2); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.inv-card h4 .ico { font-size: 13px; }
+.inv-url-input {
+  width: 100%; background: var(--s3); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); padding: 6px 9px; font-size: 11px; font-family: var(--mono); outline: none;
+  margin-bottom: 6px;
+}
+.inv-url-input:focus { border-color: var(--lime); }
+.inv-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 7px 12px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--s3); color: var(--text); cursor: pointer; font-size: 12px; font-weight: 600;
+  transition: all .15s;
+}
+.inv-btn:hover { border-color: var(--lime); color: var(--lime); }
+.inv-btn.primary { background: var(--lime); border-color: var(--lime); color: #0c0d0f; }
+.inv-btn.primary:hover { background: #95dd1f; border-color: #95dd1f; color: #0c0d0f; }
+.inv-btn:disabled { opacity: .5; cursor: not-allowed; }
+.inv-drop {
+  border: 1.5px dashed var(--border2); border-radius: 6px; padding: 16px 12px;
+  text-align: center; cursor: pointer; transition: all .15s; margin-bottom: 6px;
+  background: var(--s3);
+}
+.inv-drop:hover, .inv-drop.dragover { border-color: var(--lime); background: var(--lime-dim); color: var(--lime); }
+.inv-drop-title { font-size: 12px; font-weight: 600; }
+.inv-drop-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.inv-status {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px; border-radius: 6px; background: var(--s3); border: 1px solid var(--border);
+}
+.inv-status-left { display: flex; flex-direction: column; gap: 2px; }
+.inv-count { font-size: 13px; font-weight: 700; color: var(--text); }
+.inv-source { font-size: 10px; color: var(--muted); }
+.inv-status-actions { display: flex; gap: 6px; }
+.inv-status-actions button {
+  background: transparent; border: 1px solid var(--border); border-radius: 5px;
+  color: var(--muted); cursor: pointer; padding: 4px 9px; font-size: 11px; transition: all .15s;
+}
+.inv-status-actions button:hover { color: var(--text); border-color: var(--border2); }
+.inv-msg { font-size: 11px; padding: 6px 9px; border-radius: 5px; margin-top: 8px; display: none; }
+.inv-msg.show { display: block; }
+.inv-msg.ok { background: var(--lime-dim); color: var(--lime); border: 1px solid rgba(132,204,22,.3); }
+.inv-msg.err { background: var(--red-dim); color: var(--red); border: 1px solid rgba(248,113,113,.3); }
+.inv-msg.info { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(96,165,250,.3); }
+
+/* ── Inventory Browser Modal ── */
+.inv-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+  z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.inv-modal.show { display: flex; }
+.inv-modal-box {
+  background: var(--s1); border: 1px solid var(--border2); border-radius: 12px;
+  padding: 18px 20px; width: 100%; max-width: 720px; max-height: 85vh; display: flex; flex-direction: column;
+}
+.inv-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.inv-modal-head h3 { font-size: 16px; font-weight: 700; }
+.inv-modal-close {
+  width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); cursor: pointer; font-size: 16px;
+}
+.inv-modal-close:hover { background: var(--red-dim); color: var(--red); border-color: var(--red); }
+.inv-modal-search {
+  width: 100%; background: var(--s2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 8px 12px; font-size: 13px; outline: none; margin-bottom: 10px;
+}
+.inv-modal-search:focus { border-color: var(--lime); }
+.inv-modal-list { flex: 1; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+.inv-modal-list table { width: 100%; border-collapse: collapse; }
+.inv-modal-list th {
+  background: var(--s2); position: sticky; top: 0; padding: 8px 10px;
+  text-align: left; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.inv-modal-list td {
+  padding: 7px 10px; font-size: 12px; border-bottom: 1px solid var(--border);
+}
+.inv-modal-list td.num { text-align: right; font-family: var(--mono); }
+.inv-modal-list tr:hover td { background: var(--s2); }
+
+/* ── Autocomplete Dropdown ── */
+.ac-dd {
+  position: absolute; z-index: 300; background: var(--s1); border: 1px solid var(--border2);
+  border-radius: 6px; box-shadow: 0 12px 32px rgba(0,0,0,.5); max-height: 280px; overflow-y: auto;
+  display: none; min-width: 240px;
+}
+.ac-dd.show { display: block; }
+.ac-item {
+  padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border);
+  transition: background .1s;
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.active { background: var(--lime-dim); }
+.ac-name { font-size: 12px; font-weight: 600; color: var(--text); }
+.ac-meta { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
+.ac-empty { padding: 12px; font-size: 12px; color: var(--muted); text-align: center; }
+
+@media print {
+  @page { size: A4; margin: 16mm 14mm; }
+  body { background: #fff; margin: 0; padding: 0; }
+  .topbar, .item-tabs-bar, .layout { display: none !important; }
+  .pdf-doc {
+    display: block !important;
+    font-family: 'Outfit', sans-serif; color: #111; font-size: 11px; line-height: 1.55;
+  }
+  .pdf-doc * { color: inherit; }
+  .pdf-page { padding: 0 0 20px; page-break-after: always; }
+  .pdf-page:last-child { page-break-after: auto; }
+  .pdf-header { border-bottom: 3px solid #111; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+  .pdf-h1 { font-size: 24px; font-weight: 800; letter-spacing: .04em; line-height: 1.1; }
+  .pdf-h2 { font-size: 15px; font-weight: 700; margin: 18px 0 10px; padding-bottom: 5px; border-bottom: 1px solid #ccc; letter-spacing: .03em; }
+  .pdf-h3 { font-size: 12px; font-weight: 700; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: .08em; color: #444; }
+  .pdf-meta { font-size: 10px; color: #555; text-align: right; line-height: 1.7; }
+  .pdf-meta strong { color: #111; }
+  .pdf-from-to { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 18px; }
+  .pdf-label { font-size: 9px; font-weight: 700; letter-spacing: .14em; color: #888; margin-bottom: 4px; }
+  .pdf-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  .pdf-table th, .pdf-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #e5e5e5; vertical-align: top; }
+  .pdf-table th { background: #f4f4f5; font-size: 9px; text-transform: uppercase; font-weight: 700; color: #555; letter-spacing: .06em; }
+  .pdf-table .num { text-align: right; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+  .pdf-table tfoot td { border-top: 2px solid #111; border-bottom: none; padding-top: 8px; font-weight: 600; }
+  .pdf-table .total-row td { font-weight: 800; font-size: 13px; background: #fafafa; border-top: 2px solid #111; padding: 9px 8px; }
+  .pdf-table .gst-row td { font-size: 10px; color: #555; }
+  .pdf-table .indent-1 { padding-left: 22px !important; }
+  .pdf-table .indent-2 { padding-left: 38px !important; }
+  .pdf-table .branch::before { content: '└ '; color: #888; }
+  .pdf-callout { border: 2px solid #111; padding: 14px 16px; margin: 12px 0 16px; }
+  .pdf-callout-label { font-size: 9px; font-weight: 700; letter-spacing: .14em; color: #555; }
+  .pdf-callout-val { font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1.1; margin-top: 2px; }
+  .pdf-callout-sub { font-size: 10px; color: #444; margin-top: 6px; line-height: 1.5; }
+  .pdf-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pdf-section { break-inside: avoid; page-break-inside: avoid; margin-bottom: 14px; }
+  .pdf-recos { padding-left: 18px; }
+  .pdf-recos li { margin-bottom: 5px; font-size: 11px; }
+  .pdf-terms { margin-top: 22px; padding: 12px 14px; background: #fafafa; border: 1px solid #e5e5e5; }
+  .pdf-terms ul { padding-left: 18px; margin-top: 4px; }
+  .pdf-terms li { font-size: 10px; margin-bottom: 3px; }
+  .pdf-internal-banner { background: #111; color: #fff !important; padding: 8px 14px; font-size: 10px; letter-spacing: .14em; font-weight: 700; margin-bottom: 14px; }
+  .pdf-internal-banner * { color: #fff !important; }
+  .pdf-chain { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+  .pdf-chain-row { display: flex; justify-content: space-between; padding: 6px 10px; border: 1px solid #ccc; }
+  .pdf-chain-arrow { text-align: center; color: #888; font-size: 9px; }
+  .pdf-item-block { border: 1px solid #d4d4d8; padding: 12px 14px; margin-bottom: 10px; break-inside: avoid; }
+  .pdf-item-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e5e5e5; }
+  .pdf-kv-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px 16px; font-size: 10px; }
+  .pdf-kv-grid .kv-l { color: #777; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+  .pdf-kv-grid .kv-v { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 11px; }
+  .pdf-foot-note { font-size: 9px; color: #999; margin-top: 30px; text-align: center; padding-top: 10px; border-top: 1px solid #e5e5e5; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="app-badge">Pricing Calc</span>
+  <input class="kit-name-input" id="kitName" type="text" placeholder="Kit / Product Name" value="My STEM Kit" oninput="updateActiveItem('name', this.value)">
+  <div class="kit-type-group" id="kitTypeGroup">
+    <button class="type-btn active" data-type="bundle"        onclick="setType(this)">Bundle / Kit</button>
+    <button class="type-btn"        data-type="rebranded"     onclick="setType(this)">Rebranded</button>
+    <button class="type-btn"        data-type="resale"        onclick="setType(this)">Resale</button>
+    <button class="type-btn"        data-type="manufactured"  onclick="setType(this)">Manufactured</button>
+  </div>
+  <div class="quote-toggle" id="quoteToggle" onclick="toggleQuotationMode()">
+    <span class="quote-toggle-label">Quotation Mode</span>
+    <span class="quote-toggle-switch"></span>
+  </div>
+  <button id="export-btn" onclick="exportPDF()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--s2);color:var(--text);cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;transition:all .15s">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    <span id="export-btn-label">Export PDF</span>
+  </button>
+  <div class="topbar-right">
+    <div class="recalc-dot"></div>
+    <span class="live-label">LIVE</span>
+  </div>
+</div>
+
+<div class="item-tabs-bar" id="itemTabsBar">
+  <span style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.07em;text-transform:uppercase;margin-right:6px">Quote Items:</span>
+  <div id="itemTabs" style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0"></div>
+  <button class="item-tab-add" onclick="addItem()">+ Add Item</button>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;margin-top:6px;padding-top:8px;border-top:1px dashed var(--border)">
+    <span style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase">Customer:</span>
+    <input class="cust-input" id="custName" placeholder="Customer / Company name" oninput="customerName=this.value">
+    <span style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase">Quote #:</span>
+    <input class="cust-input" id="quoteNo" style="min-width:140px" oninput="quoteNumber=this.value">
+    <span style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase">GST %:</span>
+    <input class="cust-input" id="gstPct" type="number" min="0" max="50" step="0.5" value="18" style="min-width:60px" oninput="gstRate=+this.value||0">
+  </div>
+</div>
+
+<div id="pdf-doc" class="pdf-doc"></div>
+
+<div class="layout">
+<div class="left-panel">
+
+  <!-- BOM -->
+  <div class="section" id="sec-bom">
+    <div class="section-header" onclick="toggleSection('sec-bom')">
+      <span class="section-icon">📦</span>
+      <span class="section-title">Bill of Materials</span>
+      <span class="section-meta" id="bom-meta">₹0</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Add main components. Click <strong>+ sub</strong> next to a row to nest sub-components (up to 2 levels deep).</p>
+      <div class="bom-row row-labels" style="padding-left:0">
+        <div></div>
+        <div class="col-header">Part / Component</div>
+        <div class="col-header">Type</div>
+        <div class="col-header inp-right">Unit Cost</div>
+        <div class="col-header inp-center">Qty/kit</div>
+        <div class="col-header inp-right">Total</div>
+        <div></div>
+      </div>
+      <div class="bom-tree" id="bom-tree"></div>
+      <button class="add-row-btn" onclick="addPart(null, 0)">+ Add Main Component</button>
+      <div class="section-total-bar">
+        <span class="section-total-label">BOM Subtotal (per kit)</span>
+        <span class="section-total-val" id="bom-subtotal">₹0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Op Costs -->
+  <div class="section" id="sec-op">
+    <div class="section-header" onclick="toggleSection('sec-op')">
+      <span class="section-icon">💰</span>
+      <span class="section-title">Operational Costs (per kit)</span>
+      <span class="section-meta" id="op-meta">₹0</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Per-kit costs: packaging, labour, delivery, overhead, course content, etc.</p>
+      <div class="row-grid-op row-labels">
+        <div class="col-header">Cost Name</div>
+        <div class="col-header inp-right">Amount (₹)</div>
+        <div></div>
+      </div>
+      <div id="op-rows"></div>
+      <button class="add-row-btn" onclick="addOpCost()">+ Add Cost Line</button>
+      <div class="section-total-bar">
+        <span class="section-total-label">Op Cost Subtotal</span>
+        <span class="section-total-val" id="op-subtotal">₹0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add-ons -->
+  <div class="section" id="sec-addons">
+    <div class="section-header" onclick="toggleSection('sec-addons')">
+      <span class="section-icon">🏪</span>
+      <span class="section-title">Add-ons & One-time Assets</span>
+      <span class="section-meta" id="addon-meta">₹0</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Display stands, billboards, branding materials, tooling — spread over N kits sold.</p>
+      <div class="row-grid-addon row-labels">
+        <div class="col-header">Asset Name</div>
+        <div class="col-header inp-right">Total Cost</div>
+        <div class="col-header inp-center">Amortize / kits</div>
+        <div class="col-header inp-right">Per Kit</div>
+        <div></div>
+      </div>
+      <div id="addon-rows"></div>
+      <button class="add-row-btn" onclick="addAddon()">+ Add Asset</button>
+      <div class="section-total-bar">
+        <span class="section-total-label">Amortized cost / kit</span>
+        <span class="section-total-val" id="addon-subtotal">₹0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Distribution -->
+  <div class="section" id="sec-dist">
+    <div class="section-header" onclick="toggleSection('sec-dist')">
+      <span class="section-icon">📡</span>
+      <span class="section-title">Distribution & Pricing</span>
+      <span class="section-meta" id="dist-meta">Direct</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Set your channel and margin at each level. Prices are calculated bottom-up.</p>
+      <div class="channel-grid">
+        <label class="channel-card active" id="ch-direct" onclick="setChannel('direct')">
+          <input type="radio" name="channel" value="direct">
+          <div class="channel-title">D2C / Direct</div>
+          <div class="channel-desc">You → Consumer. You set the MRP and sell directly.</div>
+        </label>
+        <label class="channel-card" id="ch-retailer" onclick="setChannel('retailer')">
+          <input type="radio" name="channel" value="retailer">
+          <div class="channel-title">You → Retailer</div>
+          <div class="channel-desc">Sell B2B to shops/retailers. They set the shelf price.</div>
+        </label>
+        <label class="channel-card" id="ch-distributor" onclick="setChannel('distributor')">
+          <input type="radio" name="channel" value="distributor">
+          <div class="channel-title">You → Distributor</div>
+          <div class="channel-desc">Distributor buys from you, sells direct to consumers.</div>
+        </label>
+        <label class="channel-card" id="ch-dist_retailer" onclick="setChannel('dist_retailer')">
+          <input type="radio" name="channel" value="dist_retailer">
+          <div class="channel-title">Full Chain</div>
+          <div class="channel-desc">You → Distributor → Retailer → Consumer.</div>
+        </label>
+      </div>
+      <div class="margin-section">
+        <div>
+          <div class="margin-header">
+            <span class="margin-label">🟢 Your margin</span>
+            <span class="margin-value" id="lbl-your-margin">55%</span>
+          </div>
+          <input type="range" id="sl-your-margin" min="5" max="85" step="1" value="55" oninput="updateActiveItem('yourMargin', +this.value)">
+          <div class="margin-sub">Your selling price = COGS ÷ (1 − margin%)</div>
+        </div>
+        <div class="hidden-margin" id="dist-margin-row">
+          <div class="margin-header">
+            <span class="margin-label">🔵 Distributor margin</span>
+            <span class="margin-value" id="lbl-dist-margin">15%</span>
+          </div>
+          <input type="range" id="sl-dist-margin" class="blue" min="5" max="50" step="1" value="15" oninput="updateActiveItem('distMargin', +this.value)">
+        </div>
+        <div class="hidden-margin" id="retail-margin-row">
+          <div class="margin-header">
+            <span class="margin-label">🟡 Retailer / Shop margin</span>
+            <span class="margin-value" id="lbl-retail-margin">40%</span>
+          </div>
+          <input type="range" id="sl-retail-margin" class="amber" min="5" max="65" step="1" value="40" oninput="updateActiveItem('retailMargin', +this.value)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Volume -->
+  <div class="section" id="sec-volume">
+    <div class="section-header" onclick="toggleSection('sec-volume')">
+      <span class="section-icon">📊</span>
+      <span class="section-title">Order Volume</span>
+      <span class="section-meta" id="vol-meta">50 kits</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div class="section-body">
+      <div class="volume-grid">
+        <div class="volume-field">
+          <label>Order / Batch Qty</label>
+          <input class="inp inp-mono" type="number" id="vol-qty" value="50" min="1" oninput="updateActiveItem('qty', +this.value||1)">
+          <div class="volume-hint">Kits in this sale / production run</div>
+        </div>
+        <div class="volume-field">
+          <label>Min. Order Qty (MOQ)</label>
+          <input class="inp inp-mono" type="number" id="vol-moq" value="20" min="1" oninput="updateActiveItem('moq', +this.value||1)">
+          <div class="volume-hint">Offer assets free above this threshold</div>
+        </div>
+  <!-- Inventory -->
+  <div class="section" id="sec-inv">
+    <div class="section-header" onclick="toggleSection('sec-inv')">
+      <span class="section-icon">📚</span>
+      <span class="section-title">Inventory & Item Database</span>
+      <span class="section-meta" id="inv-meta">0 items</span>
+      <span class="section-toggle">▾</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+        Load your parts catalogue once, then <strong style="color:var(--text)">type a part name in the BOM</strong> and the cost/type/category auto-fill.
+      </p>
+
+      <div class="inv-source-grid">
+        <div class="inv-card">
+          <h4><span class="ico">🔗</span> From Google Sheet</h4>
+          <input class="inv-url-input" id="inv-gs-url" placeholder="Paste any Google Sheet link…" value="">
+          <input class="inv-url-input" id="inv-gs-tab" placeholder="Tab/sheet name (optional)" value="">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <button class="inv-btn primary" onclick="loadFromGoogleSheet()">Load from URL</button>
+            <button class="inv-btn" onclick="loadDefaultMasterSheet()" title="Load your saved master sheet">⭐ Use Master</button>
+          </div>
+          <div style="border-top:1px dashed var(--border);padding-top:8px;margin-top:4px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">
+              <span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Current Master</span>
+              <div style="display:flex;gap:4px">
+                <button onclick="openMasterSettings()" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);cursor:pointer;padding:2px 8px;font-size:10px;font-weight:600" title="Edit master sheet">✎ Edit</button>
+                <button onclick="resetMasterToDefault()" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);cursor:pointer;padding:2px 8px;font-size:10px;font-weight:600" title="Reset to default">↺</button>
+              </div>
+            </div>
+            <div id="master-url-display" style="font-size:10px;color:var(--muted2);font-family:var(--mono);word-break:break-all;line-height:1.4">…</div>
+          </div>
+        </div>
+
+        <div class="inv-card">
+          <h4><span class="ico">📁</span> From Excel / CSV</h4>
+          <div class="inv-drop" id="inv-drop"
+               ondragover="invDragOver(event)" ondragleave="invDragLeave(event)" ondrop="invDrop(event)"
+               onclick="document.getElementById('inv-file').click()">
+            <div class="inv-drop-title">📥 Drop file or click to browse</div>
+            <div class="inv-drop-sub">.xlsx · .xls · .csv</div>
+          </div>
+          <input id="inv-file" type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="invFileChosen(event)">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="inv-btn" onclick="downloadTemplate('csv')">📄 CSV Template</button>
+            <button class="inv-btn" onclick="downloadTemplate('xlsx')">📊 Excel Template</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5">
+            Template includes both <strong style="color:var(--text)">parts</strong> (just Name + Cost) and <strong style="color:var(--text)">full kits</strong> (Name + Selling Price + Margins + MRP). All non-Name columns are optional.
+          </div>
+        </div>
+      </div>
+
+      <div class="inv-status">
+        <div class="inv-status-left">
+          <div class="inv-count" id="inv-count">No inventory loaded</div>
+          <div class="inv-source" id="inv-src-label">Load a sheet or upload a file to enable autocomplete.</div>
+        </div>
+        <div class="inv-status-actions">
+          <button onclick="openInventoryBrowser()" id="btn-browse-inv" disabled>Browse</button>
+          <button onclick="clearInventory()" id="btn-clear-inv" disabled>Clear</button>
+        </div>
+      </div>
+
+      <div class="inv-msg" id="inv-msg"></div>
+    </div>
+  </div>
+
+</div>
+<div class="right-panel">
+<div class="results-sticky">
+  <div class="warn-badge" id="warn-box">⚠ Check your margins — selling price may be below cost.</div>
+
+  <!-- Recommended Price -->
+  <div class="reco-price-block">
+    <div class="reco-price-label">💡 Recommended Selling Price</div>
+    <div class="reco-price-val" id="reco-price-val">₹0</div>
+    <div class="reco-price-sub" id="reco-price-sub">Configure your COGS and margin to see pricing.</div>
+  </div>
+
+  <!-- Ceiling -->
+  <div class="ceiling-block">
+    <div class="ceiling-label">⚠ Ceiling — don't exceed</div>
+    <div class="ceiling-val" id="ceiling-val">—</div>
+    <div class="ceiling-reason" id="ceiling-reason"></div>
+  </div>
+
+  <!-- Cost Breakdown -->
+  <div class="r-card">
+    <div class="r-card-title"><div class="dot" style="background:var(--red)"></div>Total Cost per Kit (COGS)</div>
+    <div class="r-row"><span class="r-label">BOM / Parts</span><span class="r-val" id="r-bom">₹0</span></div>
+    <div class="r-row"><span class="r-label">Operational Costs</span><span class="r-val" id="r-op">₹0</span></div>
+    <div class="r-row"><span class="r-label">Asset Amortization</span><span class="r-val" id="r-amort">₹0</span></div>
+    <div class="r-divider"></div>
+    <div class="r-row">
+      <span class="r-label" style="font-weight:600;color:var(--text)">Effective COGS / kit</span>
+      <span class="r-val red" id="r-cogs">₹0</span>
+    </div>
+  </div>
+
+  <!-- Cost Split-up -->
+  <div class="r-card">
+    <div class="r-card-title"><div class="dot" style="background:var(--blue)"></div>Cost Split-up (per kit)</div>
+    <div id="splitup-rows"></div>
+  </div>
+
+  <!-- Market Data (live via Anthropic API) -->
+  <div class="market-card">
+    <div class="r-card-title">
+      <div class="dot" style="background:var(--blue)"></div>
+      <span>Live Market Benchmarks</span>
+      <button onclick="openApiKeySettings()" title="API key settings" style="margin-left:auto;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0">⚙</button>
+    </div>
+    <div id="market-body"></div>
+  </div>
+
+  <!-- Pricing Chain -->
+  <div class="r-card">
+    <div class="r-card-title"><div class="dot" style="background:var(--lime)"></div>Pricing Chain</div>
+    <div class="price-chain" id="price-chain"></div>
+  </div>
+
+  <!-- Margin Waterfall -->
+  <div class="r-card">
+    <div class="r-card-title"><div class="dot" style="background:var(--amber)"></div>Margin Waterfall (vs MRP)</div>
+    <div class="wf" id="waterfall"></div>
+  </div>
+
+  <!-- Order Summary -->
+  <div class="r-card">
+    <div class="r-card-title"><div class="dot" style="background:var(--green)"></div>Order Summary</div>
+    <div class="r-row"><span class="r-label">Kits in order</span><span class="r-val" id="r-qty">50</span></div>
+    <div class="r-row"><span class="r-label">Total COGS (order)</span><span class="r-val red" id="r-order-cogs">₹0</span></div>
+    <div class="r-row"><span class="r-label">Your Revenue</span><span class="r-val lime" id="r-order-rev">₹0</span></div>
+    <div class="r-divider"></div>
+    <div class="r-row"><span class="r-label" style="font-weight:600;color:var(--text)">Gross Profit (order)</span><span class="r-val green" id="r-order-profit">₹0</span></div>
+    <div class="r-row"><span class="r-label">ROI on Cost</span><span class="r-val green" id="r-roi">0%</span></div>
+    <div class="r-row"><span class="r-label">Break-even kits</span><span class="r-val amber" id="r-breakeven">—</span></div>
+  </div>
+
+  <!-- Asset Recovery -->
+  <div class="r-card">
+    <div class="r-card-title"><div class="dot" style="background:var(--amber)"></div>Asset Recovery</div>
+    <div id="r-asset-rows"><div style="font-size:12px;color:var(--muted)">No assets added yet.</div></div>
+    <div class="r-divider" id="r-asset-divider" style="display:none"></div>
+    <div class="r-row" id="r-total-assets-row" style="display:none">
+      <span class="r-label">Total asset investment</span>
+      <span class="r-val amber" id="r-total-assets">₹0</span>
+    </div>
+  </div>
+
+  <!-- Recommendations -->
+  <div class="r-card">
+    <div class="r-card-title"><div class="dot" style="background:var(--purple)"></div>Quick Summary</div>
+    <ul class="reco-list" id="reco-list"></ul>
+  </div>
+
+  <!-- Combined Quote (only in quotation mode) -->
+  <div class="quote-card" id="quote-summary-card" style="display:none">
+    <div class="r-card-title"><div class="dot" style="background:var(--purple)"></div>📋 Combined Quotation</div>
+    <div id="quote-items"></div>
+    <div class="quote-totals">
+      <div class="r-row"><span class="r-label">Total kits</span><span class="r-val" id="qt-kits">0</span></div>
+      <div class="r-row"><span class="r-label">Total COGS</span><span class="r-val red" id="qt-cogs">₹0</span></div>
+      <div class="r-row"><span class="r-label">Quote Total (your revenue)</span><span class="r-val lime" id="qt-rev">₹0</span></div>
+      <div class="r-row"><span class="r-label" style="font-weight:600;color:var(--text)">Combined Profit</span><span class="r-val green" id="qt-profit">₹0</span></div>
+      <div class="r-row"><span class="r-label">Blended ROI</span><span class="r-val green" id="qt-roi">0%</span></div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- Inventory Browser Modal -->
+<div class="inv-modal" id="inv-modal" onclick="if(event.target===this) closeInventoryBrowser()">
+  <div class="inv-modal-box">
+    <div class="inv-modal-head">
+      <h3>📚 Inventory Browser</h3>
+      <button class="inv-modal-close" onclick="closeInventoryBrowser()">×</button>
+    </div>
+    <input type="text" class="inv-modal-search" id="inv-search" placeholder="Search by name, SKU, or category…" oninput="renderInventoryList()">
+    <div class="inv-modal-list">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Category</th><th class="num">Cost</th><th>SKU</th></tr></thead>
+        <tbody id="inv-list-body"></tbody>
+      </table>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Click any row to insert it as a new BOM line.</div>
+  </div>
+</div>
+
+<!-- Autocomplete Dropdown -->
+<div class="ac-dd" id="ac-dd" onclick="event.stopPropagation()"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────
+let nextId = 1;
+const mkId = () => nextId++;
+
+let items = [];
+let activeItemId = null;
+let quotationMode = false;
+
+function newItem(name='New Kit') {
+  return {
+    id: mkId(), name, type: 'bundle',
+    parts: [], opCosts: [], addons: [],
+    channel: 'direct',
+    yourMargin: 55, distMargin: 15, retailMargin: 40,
+    qty: 50, moq: 20,
+  };
+}
+
+const getActiveItem = () => items.find(i => i.id === activeItemId);
+
+function init() {
+  const item = newItem('My STEM Kit');
+  item.parts.push({ id: mkId(), parentId: null, level: 0, name: 'Main Component', type: 'sourced', cost: 0, qty: 1, collapsed: false });
+  item.opCosts.push({ id: mkId(), name: 'Packaging',           amount: 0 });
+  item.opCosts.push({ id: mkId(), name: 'Logistics / Shipping', amount: 0 });
+  item.opCosts.push({ id: mkId(), name: 'Overhead / Labour',    amount: 0 });
+  items.push(item);
+  activeItemId = item.id;
+  loadActiveItemUI();
+  renderItemTabs();
+  recalc();
+}
+
+// ── Quotation Mode ─────────────────────────────────────────
+function toggleQuotationMode() {
+  quotationMode = !quotationMode;
+  document.getElementById('quoteToggle').classList.toggle('active', quotationMode);
+  document.getElementById('itemTabsBar').classList.toggle('show', quotationMode);
+  document.getElementById('quote-summary-card').style.display = quotationMode ? '' : 'none';
+  // Update export button label + style
+  const btn = document.getElementById('export-btn');
+  const lbl = document.getElementById('export-btn-label');
+  if (quotationMode) {
+    lbl.textContent = 'Export Quotation PDF';
+    btn.style.borderColor = 'var(--purple)';
+    btn.style.background = 'var(--purple-dim)';
+    btn.style.color = 'var(--purple)';
+  } else {
+    lbl.textContent = 'Export PDF';
+    btn.style.borderColor = 'var(--border)';
+    btn.style.background = 'var(--s2)';
+    btn.style.color = 'var(--text)';
+  }
+  if (!quotationMode && items.length > 1) {
+    items = [items.find(i => i.id === activeItemId) || items[0]];
+    activeItemId = items[0].id;
+    loadActiveItemUI();
+  }
+  renderItemTabs();
+  recalc();
+}
+
+function addItem() {
+  const item = newItem('Item ' + (items.length + 1));
+  item.parts.push({ id: mkId(), parentId: null, level: 0, name: 'Main Component', type: 'sourced', cost: 0, qty: 1, collapsed: false });
+  items.push(item);
+  activeItemId = item.id;
+  loadActiveItemUI();
+  renderItemTabs();
+  recalc();
+}
+
+function removeItem(id) {
+  if (items.length <= 1) return;
+  items = items.filter(i => i.id !== id);
+  if (activeItemId === id) activeItemId = items[0].id;
+  loadActiveItemUI();
+  renderItemTabs();
+  recalc();
+}
+
+function switchItem(id) {
+  activeItemId = id;
+  loadActiveItemUI();
+  renderItemTabs();
+  recalc();
+  if (typeof checkCachedMarket === 'function') checkCachedMarket();
+}
+
+function renderItemTabs() {
+  const c = document.getElementById('itemTabs');
+  c.innerHTML = items.map(i => `
+    <div class="item-tab ${i.id === activeItemId ? 'active' : ''}" onclick="switchItem(${i.id})">
+      <span>${esc(i.name) || 'Untitled'}</span>
+      ${items.length > 1 ? `<span class="close-x" onclick="event.stopPropagation();removeItem(${i.id})">×</span>` : ''}
+    </div>
+  `).join('');
+}
+
+function loadActiveItemUI() {
+  const item = getActiveItem();
+  if (!item) return;
+  document.getElementById('kitName').value = item.name;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === item.type));
+  document.getElementById('sl-your-margin').value   = item.yourMargin;
+  document.getElementById('sl-dist-margin').value   = item.distMargin;
+  document.getElementById('sl-retail-margin').value = item.retailMargin;
+  document.getElementById('vol-qty').value = item.qty;
+  document.getElementById('vol-moq').value = item.moq;
+  setChannelUI(item.channel);
+  renderBOM(); renderOpCosts(); renderAddons();
+}
+
+function updateActiveItem(field, val) {
+  const item = getActiveItem();
+  if (!item) return;
+  item[field] = val;
+  if (field === 'name') renderItemTabs();
+  recalc();
+}
+
+function setType(btn) {
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateActiveItem('type', btn.dataset.type);
+}
+
+function setChannel(ch) {
+  setChannelUI(ch);
+  updateActiveItem('channel', ch);
+}
+
+function setChannelUI(ch) {
+  document.querySelectorAll('.channel-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('ch-' + ch).classList.add('active');
+  const hasDist   = ch === 'distributor' || ch === 'dist_retailer';
+  const hasRetail = ch === 'retailer'    || ch === 'dist_retailer';
+  document.getElementById('dist-margin-row').className   = hasDist   ? '' : 'hidden-margin';
+  document.getElementById('retail-margin-row').className = hasRetail ? '' : 'hidden-margin';
+}
+
+function toggleSection(id) { document.getElementById(id).classList.toggle('collapsed'); }
+
+// ── BOM ────────────────────────────────────────────────────
+function addPart(parentId, level) {
+  const item = getActiveItem();
+  item.parts.push({
+    id: mkId(), parentId, level,
+    name: level === 0 ? 'Component' : level === 1 ? 'Sub-component' : 'Sub-sub-component',
+    type: 'sourced', cost: 0, qty: 1, collapsed: false
+  });
+  renderBOM();
+  recalc();
+}
+
+function removePart(id) {
+  const item = getActiveItem();
+  const toRemove = new Set([id]);
+  let added = true;
+  while (added) {
+    added = false;
+    for (const p of item.parts) {
+      if (p.parentId !== null && toRemove.has(p.parentId) && !toRemove.has(p.id)) {
+        toRemove.add(p.id); added = true;
+      }
+    }
+  }
+  item.parts = item.parts.filter(p => !toRemove.has(p.id));
+  renderBOM();
+  recalc();
+}
+
+function updatePart(id, field, val) {
+  const item = getActiveItem();
+  const p = item.parts.find(x => x.id === id);
+  if (!p) return;
+  p[field] = val;
+  if (field === 'cost' || field === 'qty') {
+    refreshRowAndAncestors(p);
+  }
+  recalc();
+}
+
+function getRolledCost(part, allParts) {
+  const children = allParts.filter(c => c.parentId === part.id);
+  if (children.length === 0) return part.cost || 0;
+  return children.reduce((s, c) => s + getRolledCost(c, allParts) * (c.qty || 0), 0);
+}
+
+function refreshRowAndAncestors(part) {
+  const item = getActiveItem();
+  let cur = part;
+  while (cur) {
+    const rowEl = document.getElementById('part-' + cur.id);
+    if (rowEl) {
+      const rolled = getRolledCost(cur, item.parts);
+      const costIn = rowEl.querySelector('.cost-input');
+      if (costIn && costIn.dataset.auto === '1') costIn.value = rolled ? rolled.toFixed(2).replace(/\.00$/,'') : '';
+      const totalEl = rowEl.querySelector('.row-total');
+      if (totalEl) totalEl.textContent = fmt(rolled * (cur.qty || 0));
+    }
+    cur = cur.parentId !== null ? item.parts.find(x => x.id === cur.parentId) : null;
+  }
+}
+
+function toggleCollapsePart(id) {
+  const item = getActiveItem();
+  const p = item.parts.find(x => x.id === id);
+  if (p) p.collapsed = !p.collapsed;
+  renderBOM();
+}
+
+function getChildren(parts, parentId) {
+  return parts.filter(p => p.parentId === parentId);
+}
+
+function renderBOM() {
+  const item = getActiveItem();
+  const c = document.getElementById('bom-tree');
+  if (!item) { c.innerHTML = ''; return; }
+
+  const ordered = [];
+  function walk(parentId) {
+    for (const p of getChildren(item.parts, parentId)) {
+      ordered.push(p);
+      if (!p.collapsed) walk(p.id);
+    }
+  }
+  walk(null);
+
+  if (ordered.length === 0) { c.innerHTML = ''; return; }
+
+  c.innerHTML = ordered.map(p => {
+    const children = getChildren(item.parts, p.id);
+    const hasChildren = children.length > 0;
+    const canHaveChildren = p.level < 2;
+    const rolled = hasChildren ? getRolledCost(p, item.parts) : (p.cost || 0);
+    const costDisplay = hasChildren ? (rolled ? rolled.toFixed(2).replace(/\.00$/,'') : '') : (p.cost||'');
+    return `
+      <div class="bom-row lvl-${p.level}" id="part-${p.id}">
+        <button class="expand-btn ${hasChildren ? '' : 'no-children'} ${p.collapsed ? 'collapsed' : ''}" onclick="toggleCollapsePart(${p.id})">▾</button>
+        <div style="display:flex;align-items:center;gap:6px;min-width:0">
+          <input class="inp" type="text" placeholder="Part name" value="${esc(p.name)}"
+            oninput="updatePart(${p.id},'name',this.value); showAutocomplete(this, ${p.id})"
+            onfocus="showAutocomplete(this, ${p.id})"
+            onblur="setTimeout(hideAutocomplete, 180)"
+            onkeydown="acKeyDown(event, ${p.id})"
+            autocomplete="off"
+            style="min-width:0;flex:1">
+          ${canHaveChildren ? `<button class="add-sub-btn" onclick="addPart(${p.id}, ${p.level + 1})">+ sub</button>` : ''}
+        </div>
+        <select class="inp" onchange="updatePart(${p.id},'type',this.value)">
+          <option value="sourced"   ${p.type==='sourced'   ?'selected':''}>Sourced</option>
+          <option value="rebranded" ${p.type==='rebranded' ?'selected':''}>Rebranded</option>
+          <option value="resale"    ${p.type==='resale'    ?'selected':''}>Resale</option>
+          <option value="made"      ${p.type==='made'      ?'selected':''}>Made</option>
+        </select>
+        <input class="inp inp-mono inp-right cost-input ${hasChildren?'inp-auto':''}" type="number" placeholder="0" min="0"
+          value="${costDisplay}" data-auto="${hasChildren?1:0}"
+          ${hasChildren ? 'readonly title="Auto-computed from sub-components"' : `oninput="updatePart(${p.id},'cost',+this.value||0)"`}>
+        <input class="inp inp-mono inp-center" type="number" placeholder="1" min="0" step="0.01" value="${p.qty}"
+          oninput="updatePart(${p.id},'qty',+this.value||0)">
+        <div class="row-total">${fmt(rolled * (p.qty||0))}</div>
+        <button class="del-btn" onclick="removePart(${p.id})">×</button>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Op Costs ───────────────────────────────────────────────
+function addOpCost() {
+  const item = getActiveItem();
+  item.opCosts.push({ id: mkId(), name: '', amount: 0 });
+  renderOpCosts();
+  recalc();
+}
+
+function removeOpCost(id) {
+  const item = getActiveItem();
+  item.opCosts = item.opCosts.filter(c => c.id !== id);
+  renderOpCosts();
+  recalc();
+}
+
+function updateOpCost(id, field, val) {
+  const item = getActiveItem();
+  const c = item.opCosts.find(x => x.id === id);
+  if (c) c[field] = val;
+  recalc();
+}
+
+function renderOpCosts() {
+  const item = getActiveItem();
+  const c = document.getElementById('op-rows');
+  if (!item) { c.innerHTML = ''; return; }
+  c.innerHTML = item.opCosts.map(x => `
+    <div class="row-grid-op">
+      <input class="inp" type="text" placeholder="Cost name" value="${esc(x.name)}"
+        oninput="updateOpCost(${x.id},'name',this.value)">
+      <input class="inp inp-mono inp-right" type="number" placeholder="0" min="0" value="${x.amount||''}"
+        oninput="updateOpCost(${x.id},'amount',+this.value||0)">
+      <button class="del-btn" onclick="removeOpCost(${x.id})">×</button>
+    </div>
+  `).join('');
+}
+
+// ── Add-ons ────────────────────────────────────────────────
+function addAddon() {
+  const item = getActiveItem();
+  item.addons.push({ id: mkId(), name: '', totalCost: 0, amortQty: 50 });
+  renderAddons();
+  recalc();
+}
+
+function removeAddon(id) {
+  const item = getActiveItem();
+  item.addons = item.addons.filter(a => a.id !== id);
+  renderAddons();
+  recalc();
+}
+
+function updateAddon(id, field, val) {
+  const item = getActiveItem();
+  const a = item.addons.find(x => x.id === id);
+  if (!a) return;
+  a[field] = val;
+  const pk = document.getElementById('addon-perkit-' + id);
+  if (pk) pk.textContent = fmt(a.amortQty > 0 ? a.totalCost / a.amortQty : 0);
+  recalc();
+}
+
+function renderAddons() {
+  const item = getActiveItem();
+  const c = document.getElementById('addon-rows');
+  if (!item) { c.innerHTML = ''; return; }
+  c.innerHTML = item.addons.map(a => `
+    <div class="row-grid-addon" id="addon-${a.id}">
+      <input class="inp" type="text" placeholder="e.g. Display Stand" value="${esc(a.name)}"
+        oninput="updateAddon(${a.id},'name',this.value)">
+      <input class="inp inp-mono inp-right" type="number" placeholder="0" min="0" value="${a.totalCost||''}"
+        oninput="updateAddon(${a.id},'totalCost',+this.value||0)">
+      <input class="inp inp-mono inp-center" type="number" placeholder="50" min="1" value="${a.amortQty}"
+        oninput="updateAddon(${a.id},'amortQty',+this.value||1)">
+      <div class="row-total" id="addon-perkit-${a.id}">${fmt(a.amortQty>0 ? a.totalCost/a.amortQty : 0)}</div>
+      <button class="del-btn" onclick="removeAddon(${a.id})">×</button>
+    </div>
+  `).join('');
+}
+
+// ── Compute ────────────────────────────────────────────────
+function computeItem(item) {
+  const bomCost  = item.parts
+    .filter(p => p.level === 0)
+    .reduce((s, p) => s + getRolledCost(p, item.parts) * (p.qty || 0), 0);
+  const opCost   = item.opCosts.reduce((s, c) => s + (c.amount || 0), 0);
+  const addonAmort = item.addons.reduce((s, a) => s + (a.amortQty > 0 ? a.totalCost / a.amortQty : 0), 0);
+  const cogs = bomCost + opCost + addonAmort;
+
+  const ym = item.yourMargin / 100;
+  const yourPrice = ym < 1 && cogs > 0 ? cogs / (1 - ym) : cogs * (1 + ym);
+  const yourProfit = yourPrice - cogs;
+
+  let distPrice = null, distProfit = 0;
+  const hasDist = item.channel === 'distributor' || item.channel === 'dist_retailer';
+  if (hasDist) {
+    const dm = item.distMargin / 100;
+    distPrice  = dm < 1 ? yourPrice / (1 - dm) : yourPrice * (1 + dm);
+    distProfit = distPrice - yourPrice;
+  }
+
+  let mrp = yourPrice, retailProfit = 0;
+  const hasRetail = item.channel === 'retailer' || item.channel === 'dist_retailer';
+  const retailBase = distPrice || yourPrice;
+  if (hasRetail) {
+    const rm = item.retailMargin / 100;
+    mrp = rm < 1 ? retailBase / (1 - rm) : retailBase * (1 + rm);
+    retailProfit = mrp - retailBase;
+  } else if (hasDist) {
+    mrp = distPrice;
+  }
+
+  // Ceiling logic: lower of margin-based (70%) and market psychology (2.5× COGS)
+  const marginCeilingSell = cogs > 0 ? cogs / (1 - 0.70) : 0;
+  const marketCeilingSell = cogs * 2.5;
+  let ceilingSellPrice, ceilingDriver;
+  if (cogs <= 0) { ceilingSellPrice = 0; ceilingDriver = 'none'; }
+  else if (marginCeilingSell <= marketCeilingSell) { ceilingSellPrice = marginCeilingSell; ceilingDriver = 'margin'; }
+  else                                              { ceilingSellPrice = marketCeilingSell; ceilingDriver = 'market'; }
+
+  // Apply downstream markups for ceiling MRP
+  let ceilingMRP = ceilingSellPrice;
+  if (hasDist) {
+    const dm = item.distMargin / 100;
+    ceilingMRP = dm < 1 ? ceilingMRP / (1 - dm) : ceilingMRP * (1 + dm);
+  }
+  if (hasRetail) {
+    const rm = item.retailMargin / 100;
+    ceilingMRP = rm < 1 ? ceilingMRP / (1 - rm) : ceilingMRP * (1 + rm);
+  }
+
+  return {
+    bomCost, opCost, addonAmort, cogs,
+    yourPrice, yourProfit, distPrice, distProfit, mrp, retailProfit,
+    hasDist, hasRetail,
+    marginCeilingSell, marketCeilingSell, ceilingSellPrice, ceilingMRP, ceilingDriver,
+  };
+}
+
+function computeSplitup(item, opCost, addonAmort) {
+  const splits = [];
+  for (const p of item.parts) {
+    if (p.level !== 0) continue;
+    const rolled = getRolledCost(p, item.parts);
+    const total  = rolled * (p.qty || 0);
+    if (total > 0) splits.push({ name: p.name || 'Unnamed', amount: total, type: 'bom' });
+  }
+  if (opCost > 0)     splits.push({ name: 'Operational',        amount: opCost,     type: 'op'    });
+  if (addonAmort > 0) splits.push({ name: 'Assets (amortized)', amount: addonAmort, type: 'asset' });
+  return splits;
+}
+
+function renderSplitup(item, comp) {
+  const splits = computeSplitup(item, comp.opCost, comp.addonAmort).filter(s => s.amount > 0);
+  const c = document.getElementById('splitup-rows');
+  if (splits.length === 0 || comp.cogs <= 0) {
+    c.innerHTML = '<div class="split-empty">Add components to see the breakdown.</div>';
+    return;
+  }
+  const colors = { bom: 'var(--blue)', op: 'var(--amber)', asset: 'var(--purple)' };
+  c.innerHTML = splits.sort((a,b) => b.amount - a.amount).map(s => {
+    const pct = (s.amount / comp.cogs) * 100;
+    return `
+      <div class="split-row">
+        <div class="split-name" title="${esc(s.name)}">${esc(s.name)}</div>
+        <div class="split-bar-wrap"><div class="split-bar" style="width:${Math.min(pct,100)}%;background:${colors[s.type]}"></div></div>
+        <div class="split-pct">${pct.toFixed(0)}%</div>
+        <div class="split-amt">${fmt(s.amount)}</div>
+      </div>`;
+  }).join('');
+}
+
+function recalc() {
+  const item = getActiveItem();
+  if (!item) return;
+
+  document.getElementById('lbl-your-margin').textContent   = item.yourMargin + '%';
+  document.getElementById('lbl-dist-margin').textContent   = item.distMargin + '%';
+  document.getElementById('lbl-retail-margin').textContent = item.retailMargin + '%';
+  document.getElementById('vol-meta').textContent = item.qty + ' kits';
+  const channelLabels = { direct:'Direct', retailer:'Retailer', distributor:'Distributor', dist_retailer:'Full Chain' };
+  document.getElementById('dist-meta').textContent = channelLabels[item.channel];
+
+  const comp = computeItem(item);
+
+  document.getElementById('bom-meta').textContent       = fmt(comp.bomCost);
+  document.getElementById('op-meta').textContent        = fmt(comp.opCost);
+  document.getElementById('addon-meta').textContent     = fmt(comp.addonAmort) + '/kit';
+  document.getElementById('bom-subtotal').textContent   = fmt(comp.bomCost);
+  document.getElementById('op-subtotal').textContent    = fmt(comp.opCost);
+  document.getElementById('addon-subtotal').textContent = fmt(comp.addonAmort);
+
+  document.getElementById('r-bom').textContent   = fmt(comp.bomCost);
+  document.getElementById('r-op').textContent    = fmt(comp.opCost);
+  document.getElementById('r-amort').textContent = fmt(comp.addonAmort);
+  document.getElementById('r-cogs').textContent  = fmt(comp.cogs);
+
+  renderRecommendedPrice(item, comp);
+  document.getElementById('warn-box').classList.toggle('show', comp.yourProfit < 0 || comp.cogs === 0);
+  renderSplitup(item, comp);
+  renderPriceChain(item, comp);
+  renderWaterfall(item, comp);
+
+  const orderCOGS   = comp.cogs * item.qty;
+  const orderRev    = comp.yourPrice * item.qty;
+  const orderProfit = comp.yourProfit * item.qty;
+  const roi         = comp.cogs > 0 ? (comp.yourProfit / comp.cogs) * 100 : 0;
+  const totalAddon  = item.addons.reduce((s, a) => s + a.totalCost, 0);
+  const be          = comp.yourProfit > 0 ? Math.ceil(totalAddon / comp.yourProfit) : null;
+
+  document.getElementById('r-qty').textContent          = item.qty + ' kits';
+  document.getElementById('r-order-cogs').textContent   = fmt(orderCOGS);
+  document.getElementById('r-order-rev').textContent    = fmt(orderRev);
+  document.getElementById('r-order-profit').textContent = fmt(orderProfit);
+  document.getElementById('r-roi').textContent          = roi.toFixed(1) + '%';
+  document.getElementById('r-breakeven').textContent    = be !== null ? be + ' kits' : '—';
+
+  renderAssets(item, comp.yourProfit);
+  renderRecos(item, comp, roi, totalAddon, be);
+
+  if (quotationMode) renderQuoteSummary();
+}
+
+function renderRecommendedPrice(item, comp) {
+  const valEl = document.getElementById('reco-price-val');
+  const subEl = document.getElementById('reco-price-sub');
+  const cValEl = document.getElementById('ceiling-val');
+  const cReasonEl = document.getElementById('ceiling-reason');
+
+  if (comp.cogs <= 0) {
+    valEl.textContent = '—';
+    subEl.innerHTML = 'Configure your COGS and margin to see pricing.';
+    cValEl.textContent = '—';
+    cReasonEl.textContent = '';
+    return;
+  }
+
+  const consumerLabel = (item.channel === 'direct') ? 'consumer' : 'consumer MRP';
+  valEl.textContent = fmt(comp.mrp);
+  const profitPct = ((comp.yourProfit / comp.yourPrice) * 100).toFixed(0);
+
+  subEl.innerHTML = `
+    Print this on packaging as the ${consumerLabel} price. Your take per kit: <strong>${fmt(comp.yourProfit)}</strong> (${profitPct}% margin).
+    ${item.channel !== 'direct' ? `<br>You charge the channel <strong>${fmt(comp.yourPrice)}</strong>/kit.` : ''}
+    <br><span style="color:var(--muted)">Why this price:</span> at ${item.yourMargin}% margin, you cover costs and earn a healthy spread while keeping the price defensible vs alternatives.
+  `;
+
+  cValEl.textContent = fmt(comp.ceilingMRP);
+  let reason = '';
+  if (comp.ceilingDriver === 'margin') {
+    reason = `<strong>Why this is the limit:</strong> Above 70% margin, channel partners and customers start pushing back hard. Your selling price would be <strong>${fmt(comp.marginCeilingSell)}</strong> — beyond this, retention and re-orders drop sharply.`;
+  } else {
+    reason = `<strong>Why this is the limit:</strong> The consumer-side ceiling sits at ~2.5× your COGS. Beyond <strong>${fmt(comp.marketCeilingSell)}</strong> selling price, buyers start comparing harder against alternatives — you'll need very strong brand, course content, or unique IP to justify a higher MRP.`;
+  }
+  if (comp.mrp > comp.ceilingMRP * 0.95 && comp.mrp > 0) {
+    reason += ` <span style="color:var(--red);font-weight:600">⚠ Your current price is at or above this ceiling.</span>`;
+  }
+  cReasonEl.innerHTML = reason;
+}
+
+function renderPriceChain(item, comp) {
+  const yourMarginActual = comp.yourPrice > 0 ? ((comp.yourProfit / comp.yourPrice) * 100).toFixed(1) : 0;
+  let html = `
+    <div class="chain-node you">
+      <div><span class="chain-who you">You (Selling Price)</span></div>
+      <div class="chain-right">
+        <div class="chain-price" style="color:var(--lime)">${fmt(comp.yourPrice)}</div>
+        <div class="chain-margin">Margin: ${yourMarginActual}% · Profit: ${fmt(comp.yourProfit)}/kit</div>
+      </div>
+    </div>`;
+  if (comp.hasDist) {
+    const dm = comp.distPrice > 0 ? ((comp.distProfit / comp.distPrice) * 100).toFixed(1) : 0;
+    html += `<div class="chain-arrow">↓ +${fmt(comp.distProfit)} distributor margin</div>
+    <div class="chain-node dist">
+      <div><span class="chain-who dist">Distributor</span></div>
+      <div class="chain-right">
+        <div class="chain-price" style="color:var(--blue)">${fmt(comp.distPrice)}</div>
+        <div class="chain-margin">Margin: ${dm}% · Profit: ${fmt(comp.distProfit)}/kit</div>
+      </div>
+    </div>`;
+  }
+  if (comp.hasRetail) {
+    const rm = comp.mrp > 0 ? ((comp.retailProfit / comp.mrp) * 100).toFixed(1) : 0;
+    html += `<div class="chain-arrow">↓ +${fmt(comp.retailProfit)} retailer margin</div>
+    <div class="chain-node retail">
+      <div><span class="chain-who retail">Retailer / Shop</span></div>
+      <div class="chain-right">
+        <div class="chain-price" style="color:var(--amber)">${fmt(comp.mrp)}</div>
+        <div class="chain-margin">Margin: ${rm}% · Profit: ${fmt(comp.retailProfit)}/kit</div>
+      </div>
+    </div>`;
+  }
+  const consumerLabel = item.channel === 'direct' ? 'Consumer (you sell directly)' : 'Consumer MRP';
+  html += `<div class="chain-arrow">↓ consumer pays</div>
+    <div class="chain-node consumer">
+      <div><span class="chain-who consumer">${consumerLabel}</span></div>
+      <div class="chain-right">
+        <div class="chain-price" style="color:var(--purple)">${fmt(comp.mrp)}</div>
+        <div class="chain-margin">Retail / shelf price</div>
+      </div>
+    </div>`;
+  document.getElementById('price-chain').innerHTML = html;
+}
+
+function renderWaterfall(item, comp) {
+  if (comp.mrp <= 0) {
+    document.getElementById('waterfall').innerHTML = '<div style="font-size:12px;color:var(--muted)">Enter costs to see waterfall.</div>';
+    return;
+  }
+  const pct = v => Math.min(100, Math.max(0, (v / comp.mrp) * 100)).toFixed(1);
+  let html = `
+    <div>
+      <div class="wf-item-header"><span class="wf-name">COGS</span><span class="wf-amt">${fmt(comp.cogs)} (${pct(comp.cogs)}%)</span></div>
+      <div class="wf-track"><div class="wf-bar" style="width:${pct(comp.cogs)}%;background:var(--red)"></div></div>
+    </div>
+    <div>
+      <div class="wf-item-header"><span class="wf-name">Your profit</span><span class="wf-amt">${fmt(comp.yourProfit)} (${pct(comp.yourProfit)}%)</span></div>
+      <div class="wf-track"><div class="wf-bar" style="width:${pct(comp.yourProfit)}%;background:var(--lime)"></div></div>
+    </div>`;
+  if (comp.hasDist && comp.distProfit > 0) {
+    html += `<div>
+      <div class="wf-item-header"><span class="wf-name">Distributor profit</span><span class="wf-amt">${fmt(comp.distProfit)} (${pct(comp.distProfit)}%)</span></div>
+      <div class="wf-track"><div class="wf-bar" style="width:${pct(comp.distProfit)}%;background:var(--blue)"></div></div>
+    </div>`;
+  }
+  if (comp.hasRetail && comp.retailProfit > 0) {
+    html += `<div>
+      <div class="wf-item-header"><span class="wf-name">Retailer profit</span><span class="wf-amt">${fmt(comp.retailProfit)} (${pct(comp.retailProfit)}%)</span></div>
+      <div class="wf-track"><div class="wf-bar" style="width:${pct(comp.retailProfit)}%;background:var(--amber)"></div></div>
+    </div>`;
+  }
+  document.getElementById('waterfall').innerHTML = html;
+}
+
+function renderAssets(item, yourProfit) {
+  const container = document.getElementById('r-asset-rows');
+  const divider   = document.getElementById('r-asset-divider');
+  const totalRow  = document.getElementById('r-total-assets-row');
+  if (item.addons.length === 0) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--muted)">No assets added yet.</div>';
+    divider.style.display = 'none'; totalRow.style.display = 'none';
+    return;
+  }
+  const total = item.addons.reduce((s, a) => s + a.totalCost, 0);
+  container.innerHTML = item.addons.map(a => {
+    const perKit = a.amortQty > 0 ? a.totalCost / a.amortQty : 0;
+    const kitsToRecover = yourProfit > 0 ? Math.ceil(a.totalCost / yourProfit) : null;
+    return `<div class="asset-row">
+      <div>
+        <div class="asset-name">${esc(a.name) || '(unnamed asset)'}</div>
+        <div style="font-size:11px;color:var(--muted)">Total: ${fmt(a.totalCost)} · ${fmt(perKit)}/kit over ${a.amortQty} kits</div>
+      </div>
+      <div class="asset-recover">${kitsToRecover !== null ? kitsToRecover + ' kits to recover' : '—'}</div>
+    </div>`;
+  }).join('');
+  divider.style.display = ''; totalRow.style.display = '';
+  document.getElementById('r-total-assets').textContent = fmt(total);
+}
+
+function renderRecos(item, comp, roi, totalAddon, be) {
+  const channelLabels = { direct:'selling direct to consumer', retailer:'selling through retailers', distributor:'selling through a distributor', dist_retailer:'going full chain (dist + retail)' };
+  const list = [];
+  if (comp.cogs <= 0) {
+    list.push(`Enter your costs in the BOM and Operational sections to get pricing insights.`);
+  } else {
+    list.push(`Print <strong>${fmt(comp.mrp)}</strong> as the consumer MRP — your anchor price for pitches and retailer talks.`);
+    if (comp.yourProfit > 0) {
+      list.push(`You take <strong>${fmt(comp.yourProfit)}/kit</strong> (${item.yourMargin}% margin) ${channelLabels[item.channel]}.`);
+    } else {
+      list.push(`⚠ Current pricing yields a <strong>loss of ${fmt(Math.abs(comp.yourProfit))}/kit</strong> — increase margin or reduce costs.`);
+    }
+    if (comp.distPrice) {
+      list.push(`Distributor buys at <strong>${fmt(comp.yourPrice)}</strong>, sells at <strong>${fmt(comp.distPrice)}</strong> — they earn ${((comp.distPrice-comp.yourPrice)/comp.distPrice*100).toFixed(0)}% margin.`);
+    }
+    if (totalAddon > 0 && be !== null) {
+      list.push(`You need to sell <strong>${be} kits</strong> to recover your ${fmt(totalAddon)} asset investment. Offer assets free above MOQ of <strong>${item.moq} kits</strong>.`);
+    }
+    if (roi > 0) {
+      list.push(`This ${item.qty}-kit order gives ROI of <strong>${roi.toFixed(1)}%</strong> on cost — ${roi > 50 ? 'strong unit economics.' : roi > 20 ? 'reasonable margin.' : 'consider optimising costs.'}`);
+    }
+    if (item.yourMargin < 30) list.push(`Margin under 30% — consider bundling a high-value add (course, warranty, content) to justify a higher MRP rather than reducing costs further.`);
+    if (item.yourMargin > 65) list.push(`High margin of ${item.yourMargin}% — you're near the ceiling. Validate the MRP of <strong>${fmt(comp.mrp)}</strong> against market alternatives before locking it in.`);
+  }
+  document.getElementById('reco-list').innerHTML = list.map(t => `<li>${t}</li>`).join('');
+}
+
+function renderQuoteSummary() {
+  const c = document.getElementById('quote-items');
+  let totalKits = 0, totalCOGS = 0, totalRev = 0;
+  c.innerHTML = items.map(it => {
+    const comp = computeItem(it);
+    const lineCOGS = comp.cogs * it.qty;
+    const lineRev  = comp.yourPrice * it.qty;
+    totalKits += it.qty; totalCOGS += lineCOGS; totalRev += lineRev;
+    return `
+      <div class="quote-item-row">
+        <div>
+          <div class="quote-item-name">${esc(it.name) || 'Untitled'}</div>
+          <div class="quote-item-meta">${it.qty} × ${fmt(comp.yourPrice)}/kit · COGS ${fmt(comp.cogs)}/kit</div>
+        </div>
+        <div>
+          <div class="quote-item-price">${fmt(lineRev)}</div>
+          <div class="quote-item-sub">profit ${fmt(lineRev - lineCOGS)}</div>
+        </div>
+      </div>`;
+  }).join('');
+  const profit = totalRev - totalCOGS;
+  const blendRoi = totalCOGS > 0 ? (profit / totalCOGS) * 100 : 0;
+  document.getElementById('qt-kits').textContent   = totalKits + ' kits';
+  document.getElementById('qt-cogs').textContent   = fmt(totalCOGS);
+  document.getElementById('qt-rev').textContent    = fmt(totalRev);
+  document.getElementById('qt-profit').textContent = fmt(profit);
+  document.getElementById('qt-roi').textContent    = blendRoi.toFixed(1) + '%';
+}
+
+function fmt(n) {
+  if (isNaN(n) || n === null) return '—';
+  return '₹' + Math.round(n).toLocaleString('en-IN');
+}
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── PDF / Quotation State ─────────────────────────────────
+let customerName = '';
+let quoteNumber = '';
+let gstRate = 18;
+
+function genQuoteNumber() {
+  const d = new Date();
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const seq = String(Math.floor(Math.random() * 900) + 100);
+  return `AERO-${yy}${mm}${dd}-${seq}`;
+}
+
+function exportPDF() {
+  const doc = document.getElementById('pdf-doc');
+  if (quotationMode && !customerName.trim()) {
+    const v = prompt('Customer / Company name (required for quotation):', '');
+    if (v === null) return; // user cancelled
+    if (v.trim()) {
+      customerName = v.trim();
+      const ci = document.getElementById('custName');
+      if (ci) ci.value = customerName;
+    }
+  }
+  if (!quoteNumber) {
+    quoteNumber = genQuoteNumber();
+    const qInp = document.getElementById('quoteNo');
+    if (qInp) qInp.value = quoteNumber;
+  }
+  doc.innerHTML = quotationMode ? buildQuotationPDF() : buildSingleItemPDF(getActiveItem());
+  const oldTitle = document.title;
+  const today = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+  document.title = quotationMode
+    ? `Quotation ${quoteNumber} - ${today}`
+    : `${getActiveItem()?.name || 'Pricing Sheet'} - ${today}`;
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => { document.title = oldTitle; }, 500);
+  }, 100);
+}
+
+function pdfDate() {
+  return new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function buildBOMTreeRows(item) {
+  let rows = '';
+  function walk(parentId, level) {
+    const children = item.parts.filter(p => p.parentId === parentId);
+    for (const p of children) {
+      const grandchildren = item.parts.filter(x => x.parentId === p.id);
+      const hasKids = grandchildren.length > 0;
+      const cost = hasKids ? getRolledCost(p, item.parts) : (p.cost || 0);
+      const total = cost * (p.qty || 0);
+      const indentClass = level === 0 ? '' : (level === 1 ? 'indent-1 branch' : 'indent-2 branch');
+      rows += `<tr>
+        <td class="${indentClass}">${esc(p.name) || '—'}</td>
+        <td>${({sourced:'Sourced',rebranded:'Rebranded',resale:'Resale',made:'Made'})[p.type] || '—'}</td>
+        <td class="num">${cost ? fmt(cost) : '—'}${hasKids ? ' <span style="color:#888;font-size:9px">(rolled)</span>' : ''}</td>
+        <td class="num">${p.qty || 0}</td>
+        <td class="num">${total ? fmt(total) : '—'}</td>
+      </tr>`;
+      walk(p.id, level + 1);
+    }
+  }
+  walk(null, 0);
+  return rows;
+}
+
+function buildSingleItemPDF(item) {
+  if (!item) return '';
+  const c = computeItem(item);
+  const channelLabels = { direct:'D2C / Direct', retailer:'You → Retailer', distributor:'You → Distributor', dist_retailer:'Full Chain' };
+
+  // Pricing chain HTML
+  let chain = `<div class="pdf-chain-row"><span><strong>You</strong> (selling price)</span><span class="num">${fmt(c.yourPrice)}</span></div>`;
+  if (c.hasDist) {
+    chain += `<div class="pdf-chain-arrow">↓ +${fmt(c.distProfit)} distributor margin</div>`;
+    chain += `<div class="pdf-chain-row"><span><strong>Distributor</strong></span><span class="num">${fmt(c.distPrice)}</span></div>`;
+  }
+  if (c.hasRetail) {
+    chain += `<div class="pdf-chain-arrow">↓ +${fmt(c.retailProfit)} retailer margin</div>`;
+    chain += `<div class="pdf-chain-row"><span><strong>Retailer</strong></span><span class="num">${fmt(c.mrp)}</span></div>`;
+  }
+  chain += `<div class="pdf-chain-arrow">↓ consumer pays</div>`;
+  chain += `<div class="pdf-chain-row" style="background:#fafafa"><span><strong>Consumer MRP</strong></span><span class="num"><strong>${fmt(c.mrp)}</strong></span></div>`;
+
+  const orderRev = c.yourPrice * item.qty;
+  const orderCogs = c.cogs * item.qty;
+  const orderProfit = orderRev - orderCogs;
+  const roi = c.cogs > 0 ? (c.yourProfit / c.cogs) * 100 : 0;
+
+  // Recommendations
+  const recos = [];
+  if (c.cogs > 0) {
+    recos.push(`Use <strong>${fmt(c.mrp)}</strong> as the consumer MRP (anchor for pitches and retailer talks).`);
+    if (c.yourProfit > 0) recos.push(`You take <strong>${fmt(c.yourProfit)}/kit</strong> at ${item.yourMargin}% margin via ${channelLabels[item.channel]}.`);
+    if (c.distPrice) recos.push(`Distributor buys at ${fmt(c.yourPrice)}, sells at ${fmt(c.distPrice)} — they earn ${((c.distProfit/c.distPrice)*100).toFixed(0)}% margin.`);
+    if (c.ceilingDriver === 'margin') recos.push(`Ceiling: ${fmt(c.ceilingMRP)} — beyond this, channel resistance grows.`);
+    else if (c.ceilingDriver === 'market') recos.push(`Ceiling: ${fmt(c.ceilingMRP)} — at ~2.5× COGS, buyers compare alternatives heavily.`);
+  }
+
+  return `
+    <div class="pdf-page">
+      <div class="pdf-header">
+        <div>
+          <div class="pdf-h1">${esc(item.name) || 'Pricing Sheet'}</div>
+          <div style="font-size:11px;color:#555;margin-top:2px">Pricing Sheet · ${({bundle:'Bundle/Kit',rebranded:'Rebranded',resale:'Resale',manufactured:'Manufactured'})[item.type] || 'Product'}</div>
+        </div>
+        <div class="pdf-meta">
+          <div><strong>Date:</strong> ${pdfDate()}</div>
+          <div><strong>Channel:</strong> ${channelLabels[item.channel]}</div>
+          <div><strong>Order Qty:</strong> ${item.qty} kits</div>
+        </div>
+      </div>
+
+      <div class="pdf-grid-2">
+        <div class="pdf-callout">
+          <div class="pdf-callout-label">RECOMMENDED MRP</div>
+          <div class="pdf-callout-val">${fmt(c.mrp)}</div>
+          <div class="pdf-callout-sub">Your channel price: <strong>${fmt(c.yourPrice)}</strong> · Profit ${fmt(c.yourProfit)}/kit (${item.yourMargin}%)</div>
+        </div>
+        <div class="pdf-callout" style="border-color:#999">
+          <div class="pdf-callout-label">CEILING — DON'T EXCEED</div>
+          <div class="pdf-callout-val">${fmt(c.ceilingMRP)}</div>
+          <div class="pdf-callout-sub">${c.ceilingDriver === 'margin' ? 'Margin-driven (70% cap)' : c.ceilingDriver === 'market' ? 'Market-driven (~2.5× COGS)' : '—'}</div>
+        </div>
+      </div>
+
+      <h2 class="pdf-h2">Cost Breakdown (per kit)</h2>
+      <table class="pdf-table">
+        <tr><td>BOM / Parts</td><td class="num">${fmt(c.bomCost)}</td></tr>
+        <tr><td>Operational Costs</td><td class="num">${fmt(c.opCost)}</td></tr>
+        <tr><td>Asset Amortization</td><td class="num">${fmt(c.addonAmort)}</td></tr>
+        <tr class="total-row"><td><strong>Effective COGS / kit</strong></td><td class="num"><strong>${fmt(c.cogs)}</strong></td></tr>
+      </table>
+
+      <h2 class="pdf-h2">Bill of Materials</h2>
+      <table class="pdf-table">
+        <thead><tr><th>Component</th><th>Type</th><th class="num">Unit Cost</th><th class="num">Qty</th><th class="num">Total</th></tr></thead>
+        <tbody>${buildBOMTreeRows(item) || '<tr><td colspan="5" style="text-align:center;color:#999">No components</td></tr>'}</tbody>
+        <tfoot><tr><td colspan="4"><strong>BOM Subtotal</strong></td><td class="num"><strong>${fmt(c.bomCost)}</strong></td></tr></tfoot>
+      </table>
+
+      ${item.opCosts.length ? `
+      <h2 class="pdf-h2">Operational Costs</h2>
+      <table class="pdf-table">
+        <thead><tr><th>Cost</th><th class="num">Amount</th></tr></thead>
+        <tbody>${item.opCosts.map(o => `<tr><td>${esc(o.name) || '—'}</td><td class="num">${fmt(o.amount)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td><strong>Subtotal</strong></td><td class="num"><strong>${fmt(c.opCost)}</strong></td></tr></tfoot>
+      </table>` : ''}
+
+      ${item.addons.length ? `
+      <h2 class="pdf-h2">Assets / Add-ons</h2>
+      <table class="pdf-table">
+        <thead><tr><th>Asset</th><th class="num">Total</th><th class="num">Amortize over</th><th class="num">Per kit</th></tr></thead>
+        <tbody>${item.addons.map(a => `<tr><td>${esc(a.name) || '—'}</td><td class="num">${fmt(a.totalCost)}</td><td class="num">${a.amortQty} kits</td><td class="num">${fmt(a.amortQty>0?a.totalCost/a.amortQty:0)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="3"><strong>Per-kit total</strong></td><td class="num"><strong>${fmt(c.addonAmort)}</strong></td></tr></tfoot>
+      </table>` : ''}
+    </div>
+
+    <div class="pdf-page">
+      <h2 class="pdf-h2" style="margin-top:0">Pricing Chain</h2>
+      <div class="pdf-chain">${chain}</div>
+
+      <h2 class="pdf-h2">Order Economics (${item.qty} kits)</h2>
+      <table class="pdf-table">
+        <tr><td>Total COGS</td><td class="num">${fmt(orderCogs)}</td></tr>
+        <tr><td>Your Revenue</td><td class="num">${fmt(orderRev)}</td></tr>
+        <tr class="total-row"><td><strong>Gross Profit</strong></td><td class="num"><strong>${fmt(orderProfit)}</strong></td></tr>
+        <tr><td>ROI on Cost</td><td class="num">${roi.toFixed(1)}%</td></tr>
+      </table>
+
+      ${recos.length ? `
+      <h2 class="pdf-h2">Recommendations</h2>
+      <ul class="pdf-recos">${recos.map(r => `<li>${r}</li>`).join('')}</ul>` : ''}
+
+      <div class="pdf-foot-note">Generated by Aerolab Pricing Calculator · ${pdfDate()}</div>
+    </div>
+  `;
+}
+
+function buildQuotationPDF() {
+  const today = pdfDate();
+  let totalKits = 0, subtotal = 0, totalCogs = 0;
+  const lines = items.map((it, i) => {
+    const c = computeItem(it);
+    const lineTotal = c.yourPrice * it.qty;
+    totalKits += it.qty;
+    subtotal  += lineTotal;
+    totalCogs += c.cogs * it.qty;
+    return { idx: i + 1, item: it, comp: c, lineTotal };
+  });
+  const gstAmt = subtotal * (gstRate / 100);
+  const grand  = subtotal + gstAmt;
+  const profit = subtotal - totalCogs;
+  const blendRoi = totalCogs > 0 ? (profit / totalCogs) * 100 : 0;
+
+  // ─── Page 1: Customer-facing quotation ───
+  let html = `
+    <div class="pdf-page">
+      <div class="pdf-header">
+        <div>
+          <div class="pdf-h1">QUOTATION</div>
+          <div style="font-size:11px;color:#555;margin-top:2px">Aerolab · Aeroman Technologies Pvt Ltd</div>
+        </div>
+        <div class="pdf-meta">
+          <div><strong>Quote #:</strong> ${esc(quoteNumber)}</div>
+          <div><strong>Date:</strong> ${today}</div>
+          <div><strong>Validity:</strong> 30 days</div>
+        </div>
+      </div>
+
+      <div class="pdf-from-to">
+        <div>
+          <div class="pdf-label">FROM</div>
+          <div style="font-size:13px;font-weight:700">Aeroman Technologies Pvt Ltd</div>
+          <div style="font-size:10px;color:#555;margin-top:2px">Kerala, India<br>aerolab.in</div>
+        </div>
+        <div>
+          <div class="pdf-label">PREPARED FOR</div>
+          <div style="font-size:13px;font-weight:700">${esc(customerName) || '[Customer Name]'}</div>
+          <div style="font-size:10px;color:#555;margin-top:2px">${customerName ? '' : 'Please add customer name in the quote header.'}</div>
+        </div>
+      </div>
+
+      <h2 class="pdf-h2">Quote Lines</h2>
+      <table class="pdf-table">
+        <thead>
+          <tr>
+            <th style="width:24px">#</th>
+            <th>Item</th>
+            <th class="num">Qty</th>
+            <th class="num">Unit Price</th>
+            <th class="num">Line Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lines.map(l => `
+            <tr>
+              <td>${l.idx}</td>
+              <td>
+                <div style="font-weight:600">${esc(l.item.name) || 'Untitled'}</div>
+                <div style="font-size:9px;color:#888;margin-top:1px">${({bundle:'Bundle/Kit',rebranded:'Rebranded',resale:'Resale',manufactured:'Manufactured'})[l.item.type] || ''}</div>
+              </td>
+              <td class="num">${l.item.qty}</td>
+              <td class="num">${fmt(l.comp.yourPrice)}</td>
+              <td class="num">${fmt(l.lineTotal)}</td>
+            </tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="2"></td><td class="num"><strong>${totalKits}</strong></td><td><strong>Subtotal</strong></td><td class="num"><strong>${fmt(subtotal)}</strong></td></tr>
+          <tr class="gst-row"><td colspan="4">GST @ ${gstRate}%</td><td class="num">${fmt(gstAmt)}</td></tr>
+          <tr class="total-row"><td colspan="4"><strong>GRAND TOTAL</strong></td><td class="num"><strong>${fmt(grand)}</strong></td></tr>
+        </tfoot>
+      </table>
+
+      <div class="pdf-terms">
+        <div class="pdf-label" style="margin-bottom:6px">TERMS & CONDITIONS</div>
+        <ul>
+          <li>Quote valid for 30 days from issue date.</li>
+          <li>Payment: 50% advance with PO, 50% before dispatch.</li>
+          <li>Delivery: 4 weeks from confirmed PO and receipt of advance.</li>
+          <li>Prices are exclusive of GST unless mentioned. GST at applicable rates.</li>
+          <li>Warranty: 6 months on manufacturing defects (excluding consumables).</li>
+        </ul>
+      </div>
+
+      <div class="pdf-foot-note">Aerolab · Aeroman Technologies Pvt Ltd · ${today}</div>
+    </div>
+  `;
+
+  // ─── Page 2: Internal cost & margin breakdown ───
+  html += `
+    <div class="pdf-page">
+      <div class="pdf-internal-banner">⚠ INTERNAL — NOT FOR CUSTOMER · COST & MARGIN BREAKDOWN</div>
+      <div class="pdf-header" style="border-bottom-width:1px;padding-bottom:8px;margin-bottom:14px">
+        <div>
+          <div class="pdf-h1" style="font-size:18px">Internal Cost Sheet</div>
+          <div style="font-size:11px;color:#555;margin-top:2px">For Quote #${esc(quoteNumber)} · ${esc(customerName) || '—'}</div>
+        </div>
+        <div class="pdf-meta">
+          <div><strong>${items.length}</strong> items · <strong>${totalKits}</strong> kits</div>
+          <div><strong>Date:</strong> ${today}</div>
+        </div>
+      </div>
+
+      <h2 class="pdf-h2" style="margin-top:0">Per-Item Profitability</h2>
+      ${lines.map(l => {
+        const m = l.comp.yourPrice > 0 ? ((l.comp.yourProfit / l.comp.yourPrice) * 100).toFixed(0) : 0;
+        const lineProfit = l.comp.yourProfit * l.item.qty;
+        return `
+        <div class="pdf-item-block">
+          <div class="pdf-item-title">${l.idx}. ${esc(l.item.name) || 'Untitled'} <span style="font-weight:400;color:#888;font-size:11px">· ${l.item.qty} kits</span></div>
+          <div class="pdf-kv-grid">
+            <div><div class="kv-l">COGS / kit</div><div class="kv-v">${fmt(l.comp.cogs)}</div></div>
+            <div><div class="kv-l">Selling Price</div><div class="kv-v">${fmt(l.comp.yourPrice)}</div></div>
+            <div><div class="kv-l">Profit / kit</div><div class="kv-v">${fmt(l.comp.yourProfit)} (${m}%)</div></div>
+            <div><div class="kv-l">MRP</div><div class="kv-v">${fmt(l.comp.mrp)}</div></div>
+            <div><div class="kv-l">Total COGS</div><div class="kv-v">${fmt(l.comp.cogs * l.item.qty)}</div></div>
+            <div><div class="kv-l">Line Revenue</div><div class="kv-v">${fmt(l.lineTotal)}</div></div>
+            <div><div class="kv-l">Line Profit</div><div class="kv-v">${fmt(lineProfit)}</div></div>
+            <div><div class="kv-l">Ceiling MRP</div><div class="kv-v">${fmt(l.comp.ceilingMRP)}</div></div>
+          </div>
+          <div style="margin-top:8px;font-size:10px;color:#666"><strong>Composition:</strong> BOM ${fmt(l.comp.bomCost)} · Op ${fmt(l.comp.opCost)} · Assets ${fmt(l.comp.addonAmort)}</div>
+        </div>`;
+      }).join('')}
+
+      <h2 class="pdf-h2">Combined Totals</h2>
+      <table class="pdf-table">
+        <tr><td>Total Kits</td><td class="num">${totalKits} kits</td></tr>
+        <tr><td>Quote Subtotal (revenue)</td><td class="num">${fmt(subtotal)}</td></tr>
+        <tr><td>Total COGS</td><td class="num">${fmt(totalCogs)}</td></tr>
+        <tr class="total-row"><td><strong>Combined Gross Profit</strong></td><td class="num"><strong>${fmt(profit)}</strong></td></tr>
+        <tr><td>Blended ROI on Cost</td><td class="num">${blendRoi.toFixed(1)}%</td></tr>
+        <tr><td>GST Component (paid by customer)</td><td class="num">${fmt(gstAmt)}</td></tr>
+        <tr><td>Grand Total Invoice</td><td class="num">${fmt(grand)}</td></tr>
+      </table>
+
+      <div class="pdf-foot-note">Internal use only · Aerolab Pricing Calculator</div>
+    </div>
+  `;
+
+  return html;
+}
+
+// ─────────────────────────────────────────────────────────
+// ── Inventory & Autocomplete ─────────────────────────────
+// ─────────────────────────────────────────────────────────
+
+// Default master sheet (Aerolab Recalibrated Pricing) — see DEFAULT_MASTER below
+const INVENTORY_LS_KEY = 'aerolab_pricing_inventory_v1';
+
+let inventory = [];          // { name, type, cost, category, sku, notes }
+let inventorySource = '';    // human label for where it came from
+let acFilteredItems = [];
+let acActivePartId = null;
+let acHighlight = -1;
+
+// ── Persistence ────────────────────────────────────────
+function loadInventoryFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(INVENTORY_LS_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (Array.isArray(data.items)) {
+      inventory = data.items;
+      inventorySource = data.source || 'Local cache';
+      updateInventoryStatus();
+    }
+  } catch (e) { /* ignore */ }
+}
+function saveInventoryToLocalStorage() {
+  try {
+    localStorage.setItem(INVENTORY_LS_KEY, JSON.stringify({ items: inventory, source: inventorySource, savedAt: Date.now() }));
+  } catch (e) { /* probably quota */ }
+}
+
+// ── Status / UI ────────────────────────────────────────
+function updateInventoryStatus() {
+  const n = inventory.length;
+  document.getElementById('inv-count').textContent = n === 0 ? 'No inventory loaded' : `${n} item${n===1?'':'s'} loaded`;
+  document.getElementById('inv-src-label').textContent = n === 0 ? 'Load a sheet or upload a file to enable autocomplete.' : `Source: ${inventorySource}`;
+  document.getElementById('inv-meta').textContent = n === 0 ? '0 items' : (n + ' items');
+  document.getElementById('btn-browse-inv').disabled = n === 0;
+  document.getElementById('btn-clear-inv').disabled  = n === 0;
+}
+
+function showInvMsg(text, kind='info') {
+  const el = document.getElementById('inv-msg');
+  el.className = 'inv-msg show ' + kind;
+  el.textContent = text;
+  if (kind === 'ok' || kind === 'info') {
+    setTimeout(() => el.classList.remove('show'), 5000);
+  }
+}
+
+function clearInventory() {
+  if (inventory.length === 0) return;
+  if (!confirm(`Clear all ${inventory.length} inventory items?`)) return;
+  inventory = []; inventorySource = '';
+  saveInventoryToLocalStorage();
+  updateInventoryStatus();
+  showInvMsg('Inventory cleared.', 'info');
+}
+
+// ── Column normalization ───────────────────────────────
+function normHeader(h) {
+  return String(h || '').toLowerCase().trim().replace(/[\s_\-]+/g, '');
+}
+const COL_MAP = {
+  name:     ['name', 'item', 'itemname', 'part', 'partname', 'component', 'componentname', 'description', 'product', 'productname', 'kit', 'kitname'],
+  cost:     ['cost', 'price', 'unitcost', 'unitprice', 'rate', 'amount', 'cogs', 'unit'],
+  type:     ['type', 'kind'],
+  category: ['category', 'cat', 'group', 'class'],
+  sku:      ['sku', 'code', 'partcode', 'productcode', 'id'],
+  notes:    ['notes', 'note', 'remark', 'remarks', 'comment'],
+  // ── Kit-level (optional) ──
+  bomCost:        ['bomcost', 'materialcost', 'partscost', 'rawcost', 'componentcost'],
+  opCost:         ['opcost', 'operationalcost', 'overhead', 'overheadcost', 'opex', 'opcostperkit'],
+  assetCost:      ['assetcost', 'amortizedcost', 'addoncost', 'amortcost'],
+  sellingPrice:   ['sellingprice', 'yourprice', 'b2bprice', 'b2brate', 'tradeprice', 'wholesale', 'wholesaleprice'],
+  mrp:            ['mrp', 'retailprice', 'consumerprice', 'shelfprice', 'newmrp', 'oldmrp'],
+  distPrice:      ['distprice', 'distributorprice'],
+  yourMargin:     ['yourmargin', 'margin', 'marginpct', 'b2bmargin', 'aerolabmargin'],
+  distMargin:     ['distmargin', 'distributormargin'],
+  retailMargin:   ['retailmargin', 'retailermargin', 'shopmargin'],
+  channel:        ['channel', 'distribution', 'distributionmodel'],
+  defaultQty:     ['defaultqty', 'qty', 'quantity', 'orderqty'],
+  moq:            ['moq', 'minorder', 'minorderqty'],
+};
+function detectCols(headers) {
+  const map = {};
+  const normed = headers.map(normHeader);
+  for (const [field, aliases] of Object.entries(COL_MAP)) {
+    for (let i = 0; i < normed.length; i++) {
+      if (aliases.includes(normed[i])) { map[field] = i; break; }
+    }
+  }
+  return map;
+}
+function normalizeType(t) {
+  const v = String(t || '').toLowerCase().trim();
+  if (['rebranded','rebrand'].includes(v)) return 'rebranded';
+  if (['resale','reseller','reseller item'].includes(v)) return 'resale';
+  if (['made','manufactured','produced','in-house','inhouse'].includes(v)) return 'made';
+  return 'sourced';
+}
+function rowsToInventory(rows) {
+  if (!rows || rows.length === 0) return [];
+  // Find header row: first row where at least one cell matches our known aliases for "name"
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(rows.length, 12); i++) {
+    const normed = (rows[i] || []).map(normHeader);
+    if (COL_MAP.name.some(a => normed.includes(a))) { headerIdx = i; break; }
+  }
+  if (headerIdx === -1) headerIdx = 0;
+
+  const headers = rows[headerIdx];
+  const cols = detectCols(headers);
+  if (cols.name === undefined) {
+    throw new Error('Couldn\'t find a "Name" / "Item" / "Part" column. Please add one to your sheet.');
+  }
+  const out = [];
+  for (let r = headerIdx + 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row) continue;
+    const name = String(row[cols.name] || '').trim();
+    if (!name) continue;
+    // Skip rows that look like sub-headers / category breaks (no other fields populated)
+    const hasAnyValue = row.some((v, i) => i !== cols.name && String(v || '').trim() !== '');
+
+    const item = {
+      name,
+      cost:     cols.cost     !== undefined ? parseCost(row[cols.cost])     : 0,
+      type:     cols.type     !== undefined ? normalizeType(row[cols.type]) : 'sourced',
+      category: cols.category !== undefined ? String(row[cols.category] || '').trim() : '',
+      sku:      cols.sku      !== undefined ? String(row[cols.sku] || '').trim()      : '',
+      notes:    cols.notes    !== undefined ? String(row[cols.notes] || '').trim()    : '',
+    };
+    // ── Optional kit-level fields ──
+    if (cols.bomCost      !== undefined) item.bomCost      = parseCost(row[cols.bomCost]);
+    if (cols.opCost       !== undefined) item.opCost       = parseCost(row[cols.opCost]);
+    if (cols.assetCost    !== undefined) item.assetCost    = parseCost(row[cols.assetCost]);
+    if (cols.sellingPrice !== undefined) item.sellingPrice = parseCost(row[cols.sellingPrice]);
+    if (cols.mrp          !== undefined) item.mrp          = parseCost(row[cols.mrp]);
+    if (cols.distPrice    !== undefined) item.distPrice    = parseCost(row[cols.distPrice]);
+    if (cols.yourMargin   !== undefined) item.yourMargin   = parsePct(row[cols.yourMargin]);
+    if (cols.distMargin   !== undefined) item.distMargin   = parsePct(row[cols.distMargin]);
+    if (cols.retailMargin !== undefined) item.retailMargin = parsePct(row[cols.retailMargin]);
+    if (cols.channel      !== undefined) item.channel      = normalizeChannel(row[cols.channel]);
+    if (cols.defaultQty   !== undefined) item.defaultQty   = parseInt(parseCost(row[cols.defaultQty])) || null;
+    if (cols.moq          !== undefined) item.moq          = parseInt(parseCost(row[cols.moq])) || null;
+
+    if (!hasAnyValue && !item.cost) continue; // skip blank/section-header rows
+    out.push(item);
+  }
+  return out;
+}
+
+function parsePct(v) {
+  if (typeof v === 'number') return v > 1 ? Math.round(v) : Math.round(v * 100);
+  if (!v) return null;
+  const s = String(v).replace(/[%\s]/g, '');
+  const n = parseFloat(s);
+  if (isNaN(n)) return null;
+  return n > 1 ? Math.round(n) : Math.round(n * 100);
+}
+
+function normalizeChannel(v) {
+  const s = String(v || '').toLowerCase().replace(/[\s_\-]/g, '');
+  if (s.includes('full') || (s.includes('dist') && s.includes('retail'))) return 'dist_retailer';
+  if (s.includes('distributor') || s === 'dist') return 'distributor';
+  if (s.includes('retail') || s.includes('shop')) return 'retailer';
+  if (s.includes('direct') || s.includes('d2c') || s.includes('consumer')) return 'direct';
+  return null;
+}
+
+// Returns true if this entry has enough data to load as a complete kit
+function isKitEntry(it) {
+  return it.bomCost > 0 || it.opCost > 0 || it.assetCost > 0
+      || it.sellingPrice > 0 || it.mrp > 0 || it.yourMargin
+      || it.distMargin || it.retailMargin || it.channel;
+}
+function parseCost(v) {
+  if (typeof v === 'number') return v;
+  if (!v) return 0;
+  const s = String(v).replace(/[₹$,\s]/g, '').replace(/[^\d.\-]/g, '');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+// ── Master Sheet Settings (persistent) ────────────────
+const LS_MASTER_KEY = 'aerolab_pricing_master_v1';
+const DEFAULT_MASTER = {
+  url: 'https://docs.google.com/spreadsheets/d/19Efj3DIbL3MQVg6QwCkby9mNxIBpkt2N/edit?usp=sharing',
+  tab: 'KitLookup'
+};
+let masterConfig = { ...DEFAULT_MASTER };
+
+function loadMasterConfig() {
+  try {
+    const raw = localStorage.getItem(LS_MASTER_KEY);
+    if (raw) {
+      const c = JSON.parse(raw);
+      if (c && c.url) masterConfig = { url: c.url, tab: c.tab || '' };
+    }
+  } catch(e) {}
+  // sync UI
+  const u = document.getElementById('master-url-display');
+  if (u) u.textContent = shortUrl(masterConfig.url) + (masterConfig.tab ? ' · ' + masterConfig.tab : '');
+}
+function saveMasterConfig() {
+  try { localStorage.setItem(LS_MASTER_KEY, JSON.stringify(masterConfig)); } catch(e) {}
+}
+function shortUrl(url) {
+  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_\-]+)/);
+  if (m) return '…/' + m[1].slice(0, 8) + '…';
+  return url.length > 50 ? url.slice(0, 47) + '…' : url;
+}
+
+function openMasterSettings() {
+  const newUrl = prompt('Master Google Sheet URL:', masterConfig.url);
+  if (newUrl === null) return;
+  if (!newUrl.trim()) { showInvMsg('URL can\'t be blank.', 'err'); return; }
+  const newTab = prompt('Tab/sheet name (leave blank for first tab):', masterConfig.tab);
+  if (newTab === null) return;
+  masterConfig.url = newUrl.trim();
+  masterConfig.tab = newTab.trim();
+  saveMasterConfig();
+  loadMasterConfig();
+  showInvMsg('Master sheet updated. Click "Use Master" to load it.', 'ok');
+}
+function resetMasterToDefault() {
+  if (!confirm('Reset master sheet to factory default?')) return;
+  masterConfig = { ...DEFAULT_MASTER };
+  saveMasterConfig();
+  loadMasterConfig();
+  showInvMsg('Master reset to default.', 'ok');
+}
+
+// ── Google Sheet Loader (uses XLSX export — reliable for multi-tab) ──
+function extractSheetId(url) {
+  if (!url) return null;
+  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_\-]+)/);
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9_\-]{20,}$/.test(url.trim())) return url.trim();
+  return null;
+}
+
+async function fetchAndParseSheet(url, tabHint) {
+  const id = extractSheetId(url);
+  if (!id) throw new Error('Couldn\'t parse the URL — make sure it\'s a Google Sheets link.');
+  if (typeof XLSX === 'undefined') throw new Error('Excel parser not ready. Refresh and try again.');
+
+  // Try XLSX export first — gets the entire workbook with all tabs
+  let wb = null;
+  try {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const buf = await r.arrayBuffer();
+    if (buf.byteLength < 100) throw new Error('Empty response');
+    wb = XLSX.read(buf, { type: 'array' });
+  } catch (xlsxErr) {
+    // Fallback: try CSV (single-tab fetch)
+    const fetchURL = tabHint
+      ? `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabHint)}`
+      : `https://docs.google.com/spreadsheets/d/${id}/export?format=csv`;
+    const r2 = await fetch(fetchURL);
+    if (!r2.ok) throw new Error(`Couldn't fetch sheet (HTTP ${r2.status}). Make sure it's set to "Anyone with the link can view".`);
+    const csv = await r2.text();
+    if (csv.includes('<HTML') || csv.includes('Sign in') || csv.includes('<!DOCTYPE')) {
+      throw new Error('Sheet isn\'t publicly accessible. Set sharing to "Anyone with the link can view".');
+    }
+    const rows = parseCSV(csv);
+    return { rows, sheetName: tabHint || 'default' };
+  }
+
+  // Pick the tab
+  let chosenName = wb.SheetNames[0];
+  if (tabHint) {
+    const match = wb.SheetNames.find(n => n.toLowerCase() === tabHint.toLowerCase())
+              || wb.SheetNames.find(n => n.toLowerCase().includes(tabHint.toLowerCase()));
+    if (match) chosenName = match;
+  } else {
+    // Auto-pick: prefer KitLookup / Inventory / Parts / Master / Items
+    const preferred = ['kitlookup','inventory','parts','items','catalog','catalogue','master','pricelist'];
+    for (const n of wb.SheetNames) {
+      if (preferred.includes(n.toLowerCase().replace(/\s+/g,''))) { chosenName = n; break; }
+    }
+  }
+  const ws = wb.Sheets[chosenName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+  return { rows, sheetName: chosenName, allTabs: wb.SheetNames };
+}
+
+async function loadFromGoogleSheet() {
+  const url = document.getElementById('inv-gs-url').value.trim();
+  const tab = document.getElementById('inv-gs-tab').value.trim();
+  if (!url) { showInvMsg('Paste a Google Sheet URL first.', 'err'); return; }
+  showInvMsg('Loading from Google Sheet…', 'info');
+  try {
+    const { rows, sheetName } = await fetchAndParseSheet(url, tab);
+    const items = rowsToInventory(rows);
+    if (items.length === 0) { showInvMsg(`Parsed "${sheetName}" but found no items. Check that it has a Name column.`, 'err'); return; }
+    inventory = items;
+    inventorySource = `Google Sheet · ${sheetName}`;
+    saveInventoryToLocalStorage();
+    updateInventoryStatus();
+    const kitCount = items.filter(isKitEntry).length;
+    showInvMsg(`Loaded ${items.length} item${items.length===1?'':'s'} from "${sheetName}"${kitCount ? ` (${kitCount} with full kit data)` : ''}.`, 'ok');
+  } catch (e) {
+    showInvMsg('Failed: ' + (e.message || 'unknown error'), 'err');
+  }
+}
+
+function loadDefaultMasterSheet() {
+  document.getElementById('inv-gs-url').value = masterConfig.url;
+  document.getElementById('inv-gs-tab').value = masterConfig.tab;
+  loadFromGoogleSheet();
+}
+
+// ── CSV parser (handles quotes, commas, newlines) ──────
+function parseCSV(text) {
+  const rows = [];
+  let row = [], cur = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { cur += '"'; i++; }
+        else { inQ = false; }
+      } else { cur += c; }
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(cur); cur = ''; }
+      else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else if (c === '\r') { /* skip */ }
+      else { cur += c; }
+    }
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim() !== ''));
+}
+
+// ── File Upload ────────────────────────────────────────
+function invDragOver(e) { e.preventDefault(); document.getElementById('inv-drop').classList.add('dragover'); }
+function invDragLeave(e) { document.getElementById('inv-drop').classList.remove('dragover'); }
+function invDrop(e) {
+  e.preventDefault();
+  document.getElementById('inv-drop').classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f) processInventoryFile(f);
+}
+function invFileChosen(e) {
+  const f = e.target.files[0];
+  if (f) processInventoryFile(f);
+  e.target.value = '';
+}
+
+function processInventoryFile(file) {
+  if (typeof XLSX === 'undefined') {
+    showInvMsg('Excel parser not loaded. Check your internet connection.', 'err');
+    return;
+  }
+  showInvMsg(`Parsing ${file.name}…`, 'info');
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = new Uint8Array(ev.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      // If multiple sheets, prefer ones likely to contain inventory data
+      const preferredNames = ['kitlookup','inventory','parts','items','catalog','catalogue','pricelist','price list','master'];
+      let chosenName = wb.SheetNames[0];
+      for (const n of wb.SheetNames) {
+        if (preferredNames.includes(n.toLowerCase().replace(/\s+/g,''))) { chosenName = n; break; }
+      }
+      const ws = wb.Sheets[chosenName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+      const items = rowsToInventory(rows);
+      if (items.length === 0) {
+        showInvMsg(`Parsed "${chosenName}" but found no items. Check that the file has Name and Cost columns.`, 'err');
+        return;
+      }
+      inventory = items;
+      inventorySource = `${file.name}${wb.SheetNames.length > 1 ? ' · ' + chosenName : ''}`;
+      saveInventoryToLocalStorage();
+      updateInventoryStatus();
+      showInvMsg(`Loaded ${items.length} item${items.length===1?'':'s'} from ${file.name}.`, 'ok');
+    } catch (e) {
+      showInvMsg('Failed to parse: ' + (e.message || 'unknown error'), 'err');
+    }
+  };
+  reader.onerror = () => showInvMsg('Failed to read file.', 'err');
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Template generator ─────────────────────────────────
+function downloadTemplate(format) {
+  const sample = [
+    ['Name','Type','Cost','Category','SKU','Notes',
+     'BOM Cost','Op Cost','Asset Cost','Selling Price','MRP','Distributor Price',
+     'Your Margin','Dist Margin','Retail Margin','Channel','Default Qty','MOQ'],
+    // ── Parts (just Name + Cost) ──
+    ['Arduino Nano clone','sourced',128,'Electronics','ARD-NANO-CL','Bulk pricing','','','','','','','','','','','',''],
+    ['Arduino Uno clone','sourced',165,'Electronics','ARD-UNO-CL','','','','','','','','','','','','',''],
+    ['Branded packaging box','made',45,'Packaging','PKG-BOX-AERO','Aerolab branded','','','','','','','','','','','',''],
+    ['Instruction manual (printed)','made',20,'Print','MANUAL-V1','','','','','','','','','','','','',''],
+    ['Course access card / QR','made',15,'Print','CARD-QR','Links to LMS','','','','','','','','','','','',''],
+    ['Servo motor SG90','sourced',95,'Electronics','SERVO-SG90','','','','','','','','','','','','',''],
+    ['Ultrasonic sensor HC-SR04','sourced',65,'Electronics','SEN-HCSR04','','','','','','','','','','','','',''],
+    ['Breadboard 400 pt','sourced',40,'Electronics','BB-400','','','','','','','','','','','','',''],
+    ['Jumper wires (40pc)','sourced',35,'Electronics','JW-40','','','','','','','','','','','','',''],
+    ['LED pack (50pc)','sourced',25,'Electronics','LED-50','Mixed colors','','','','','','','','','','','',''],
+    // ── Full Kits (kit-level pricing) ──
+    ['Beginner Robotics Kit','bundle','','Kits','KIT-BEG-01','Entry-level Arduino kit',
+      450, 110, 60, 1199, 2067, '', 55, '', 40, 'retailer', 50, 20],
+    ['Advanced Drone Kit','bundle','','Kits','KIT-ADV-DRONE','With distributor channel',
+      890, 145, 80, 2499, 4499, 2941, 60, 15, 35, 'dist_retailer', 30, 10],
+    ['Smart Home IoT Bundle','bundle','','Kits','KIT-IOT-HOME','D2C only',
+      620, 120, 50, 1899, 1899, '', 58, '', '', 'direct', 100, 25],
+  ];
+  if (format === 'csv') {
+    const csv = sample.map(r => r.map(c => {
+      const s = String(c ?? '');
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+    }).join(',')).join('\n');
+    downloadBlob(csv, 'inventory-template.csv', 'text/csv');
+  } else {
+    if (typeof XLSX === 'undefined') { showInvMsg('Excel library not loaded.', 'err'); return; }
+    const ws = XLSX.utils.aoa_to_sheet(sample);
+    ws['!cols'] = [
+      {wch:30},{wch:10},{wch:8},{wch:14},{wch:16},{wch:24},
+      {wch:10},{wch:9},{wch:11},{wch:13},{wch:9},{wch:14},
+      {wch:11},{wch:11},{wch:13},{wch:14},{wch:11},{wch:7}
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+    XLSX.writeFile(wb, 'inventory-template.xlsx');
+  }
+  showInvMsg('Template downloaded — fill in the Name column at minimum, plus whatever pricing data you have.', 'ok');
+}
+function downloadBlob(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ── Inventory Browser ──────────────────────────────────
+function openInventoryBrowser() {
+  if (inventory.length === 0) return;
+  document.getElementById('inv-modal').classList.add('show');
+  document.getElementById('inv-search').value = '';
+  renderInventoryList();
+  setTimeout(() => document.getElementById('inv-search').focus(), 50);
+}
+function closeInventoryBrowser() {
+  document.getElementById('inv-modal').classList.remove('show');
+}
+function renderInventoryList() {
+  const q = document.getElementById('inv-search').value.toLowerCase().trim();
+  const filtered = !q ? inventory : inventory.filter(it =>
+    (it.name + ' ' + (it.sku||'') + ' ' + (it.category||'')).toLowerCase().includes(q)
+  );
+  const tb = document.getElementById('inv-list-body');
+  if (filtered.length === 0) {
+    tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">No items match.</td></tr>';
+    return;
+  }
+  tb.innerHTML = filtered.slice(0, 200).map((it, i) => {
+    const realIdx = inventory.indexOf(it);
+    const isKit = isKitEntry(it);
+    const priceCell = isKit && it.sellingPrice ? fmt(it.sellingPrice)
+                    : isKit && it.mrp ? fmt(it.mrp)
+                    : fmt(it.cost);
+    const badge = isKit
+      ? `<span style="display:inline-block;padding:1px 6px;border-radius:3px;background:var(--purple-dim);color:var(--purple);font-size:9px;font-weight:700;letter-spacing:.06em;margin-left:6px;vertical-align:middle">KIT</span>`
+      : '';
+    const actions = isKit
+      ? `<button onclick="event.stopPropagation();loadKitFromInventory(${realIdx})" style="background:var(--purple);border:none;border-radius:4px;color:#fff;cursor:pointer;padding:3px 8px;font-size:10px;font-weight:600;margin-right:4px">Load as Kit</button>`
+      : '';
+    return `<tr>
+      <td onclick="insertInventoryItemAsBOM(${realIdx})" style="cursor:pointer">
+        <strong>${esc(it.name)}</strong>${badge}
+        ${it.notes ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(it.notes)}</div>` : ''}
+      </td>
+      <td onclick="insertInventoryItemAsBOM(${realIdx})" style="cursor:pointer">${esc(it.type)}</td>
+      <td onclick="insertInventoryItemAsBOM(${realIdx})" style="cursor:pointer">${esc(it.category||'—')}</td>
+      <td class="num" onclick="insertInventoryItemAsBOM(${realIdx})" style="cursor:pointer">${priceCell}</td>
+      <td>${actions}${esc(it.sku||'—')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function loadKitFromInventory(idx) {
+  const it = inventory[idx];
+  if (!it) return;
+  const summary = [];
+  if (it.sellingPrice) summary.push('Selling: ' + fmt(it.sellingPrice));
+  if (it.mrp)          summary.push('MRP: ' + fmt(it.mrp));
+  if (it.yourMargin)   summary.push('Margin: ' + it.yourMargin + '%');
+  if (it.bomCost)      summary.push('BOM: ' + fmt(it.bomCost));
+  if (!confirm(`Load "${it.name}" as the active kit's full configuration?\n\n${summary.join(' · ')}\n\nThis replaces current values for the active item.`)) return;
+  const item = getActiveItem();
+  if (!item) return;
+  item.name = it.name;
+  if (it.channel) item.channel = it.channel;
+  if (it.yourMargin)   item.yourMargin   = it.yourMargin;
+  if (it.distMargin)   item.distMargin   = it.distMargin;
+  if (it.retailMargin) item.retailMargin = it.retailMargin;
+  if (it.defaultQty)   item.qty          = it.defaultQty;
+  if (it.moq)          item.moq          = it.moq;
+  // Clear and seed BOM with a single rolled-up entry if BOM cost is provided
+  if (it.bomCost > 0) {
+    item.parts = [{ id: mkId(), parentId: null, level: 0, name: it.name + ' (BOM)', type: 'sourced', cost: it.bomCost, qty: 1, collapsed: false }];
+  }
+  // Op cost: replace with a single line if provided
+  if (it.opCost > 0) {
+    item.opCosts = [{ id: mkId(), name: 'Operational (loaded from kit)', amount: it.opCost }];
+  }
+  // Asset: amortize over default qty if provided
+  if (it.assetCost > 0) {
+    const amortQty = it.defaultQty || 50;
+    item.addons = [{ id: mkId(), name: 'Assets (loaded from kit)', totalCost: it.assetCost * amortQty, amortQty }];
+  }
+  closeInventoryBrowser();
+  loadActiveItemUI();
+  renderItemTabs();
+  recalc();
+  showInvMsg(`Loaded "${it.name}" as the active kit's configuration.`, 'ok');
+}
+function insertInventoryItemAsBOM(idx) {
+  const it = inventory[idx];
+  if (!it) return;
+  const item = getActiveItem();
+  item.parts.push({
+    id: mkId(), parentId: null, level: 0,
+    name: it.name, type: it.type || 'sourced', cost: it.cost || 0, qty: 1, collapsed: false
+  });
+  closeInventoryBrowser();
+  renderBOM();
+  recalc();
+  showInvMsg(`Added "${it.name}" to BOM.`, 'ok');
+}
+
+// ── Autocomplete on BOM rows ───────────────────────────
+function showAutocomplete(input, partId) {
+  const query = input.value.toLowerCase().trim();
+  if (inventory.length === 0 || !query || query.length < 1) {
+    hideAutocomplete();
+    return;
+  }
+  const tokens = query.split(/\s+/).filter(Boolean);
+  acFilteredItems = inventory.filter(it => {
+    const hay = (it.name + ' ' + (it.sku||'') + ' ' + (it.category||'')).toLowerCase();
+    return tokens.every(t => hay.includes(t));
+  }).slice(0, 8);
+  if (acFilteredItems.length === 0) { hideAutocomplete(); return; }
+
+  const dd = document.getElementById('ac-dd');
+  const rect = input.getBoundingClientRect();
+  dd.style.left = (rect.left + window.scrollX) + 'px';
+  dd.style.top  = (rect.bottom + window.scrollY + 2) + 'px';
+  dd.style.width = Math.max(rect.width, 260) + 'px';
+  acHighlight = -1;
+  acActivePartId = partId;
+  dd.innerHTML = acFilteredItems.map((it, i) => `
+    <div class="ac-item" data-idx="${i}" onmousedown="event.preventDefault()" onclick="applyAcItem(${i})">
+      <div class="ac-name">${esc(it.name)}</div>
+      <div class="ac-meta">${fmt(it.cost)} · ${esc(it.type)}${it.category ? ' · ' + esc(it.category) : ''}${it.sku ? ' · ' + esc(it.sku) : ''}</div>
+    </div>`).join('');
+  dd.classList.add('show');
+}
+
+function hideAutocomplete() {
+  document.getElementById('ac-dd').classList.remove('show');
+  acActivePartId = null; acHighlight = -1;
+}
+
+function applyAcItem(idx) {
+  const it = acFilteredItems[idx];
+  const partId = acActivePartId;
+  if (!it || partId === null) { hideAutocomplete(); return; }
+  const item = getActiveItem();
+  const p = item.parts.find(x => x.id === partId);
+  if (!p) { hideAutocomplete(); return; }
+  p.name = it.name;
+  p.cost = it.cost || 0;
+  if (it.type) p.type = it.type;
+  hideAutocomplete();
+  renderBOM();
+  recalc();
+}
+
+function acKeyDown(e, partId) {
+  const dd = document.getElementById('ac-dd');
+  if (!dd.classList.contains('show')) return;
+  const items = dd.querySelectorAll('.ac-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acHighlight = Math.min(items.length - 1, acHighlight + 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === acHighlight));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acHighlight = Math.max(0, acHighlight - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === acHighlight));
+  } else if (e.key === 'Enter' && acHighlight >= 0) {
+    e.preventDefault();
+    applyAcItem(acHighlight);
+  } else if (e.key === 'Escape') {
+    hideAutocomplete();
+  }
+}
+
+// Hide AC on outside click + reposition on scroll/resize
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.ac-dd') && !e.target.closest('.bom-row .inp')) hideAutocomplete();
+});
+window.addEventListener('scroll', hideAutocomplete, true);
+window.addEventListener('resize', hideAutocomplete);
+
+// ─────────────────────────────────────────────────────────
+// ── Live Market Benchmarks (Gemini API + Google Search) ──
+// ─────────────────────────────────────────────────────────
+// Uses Google's Gemini API with built-in Google Search grounding.
+// Free tier at https://aistudio.google.com/apikey — no credit card needed.
+
+const LS_API_KEY = 'aerolab_gemini_key_v1';
+const LS_MARKET_CACHE = 'aerolab_market_cache_v1';
+// Try these models in order — if one is overloaded, fall through to the next
+const MARKET_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
+const MARKET_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_RETRIES = 3;
+
+let marketState = { kind: 'idle', data: null, err: null, cached: false, fetchedAt: null };
+
+function getApiKey() {
+  try { return localStorage.getItem(LS_API_KEY) || ''; } catch(e) { return ''; }
+}
+function saveApiKey(k) {
+  try { localStorage.setItem(LS_API_KEY, k); } catch(e) {}
+}
+function clearApiKey() {
+  if (!confirm('Remove your stored Gemini API key?')) return;
+  try { localStorage.removeItem(LS_API_KEY); } catch(e) {}
+  showInvMsg('API key cleared.', 'info');
+  renderMarketCard();
+}
+function maskKey(k) {
+  if (!k || k.length < 12) return '(none)';
+  return k.slice(0, 6) + '…' + k.slice(-4);
+}
+function openApiKeySettings() {
+  const cur = getApiKey();
+  const action = cur
+    ? prompt(`Gemini API Key Settings\n\nCurrent: ${maskKey(cur)}\n\nType "change" to enter a new key, "clear" to remove, or cancel.`, '')
+    : promptForNewKey();
+  if (action === null) return;
+  const a = String(action).toLowerCase().trim();
+  if (a === 'clear') return clearApiKey();
+  if (a === 'change' || !cur) promptForNewKey();
+}
+function promptForNewKey() {
+  const msg = `Paste your Gemini API key (starts with "AIza…").\n\nGet one free in 30 seconds at:\nhttps://aistudio.google.com/apikey\n\nNo credit card required.`;
+  const k = prompt(msg, '');
+  if (!k) return null;
+  if (!k.startsWith('AIza')) {
+    if (!confirm('That doesn\'t look like a Gemini key (should start with "AIza"). Save anyway?')) return null;
+  }
+  saveApiKey(k.trim());
+  showInvMsg('API key saved. Click "Fetch Market Benchmarks" to use it.', 'ok');
+  renderMarketCard();
+  return k;
+}
+
+// ── Cache ──────────────────────────────────────────────
+function marketCacheKey(item) {
+  return (item.name || 'untitled').toLowerCase().trim().replace(/\s+/g, '_').slice(0, 60);
+}
+function getCachedMarket(item) {
+  try {
+    const raw = localStorage.getItem(LS_MARKET_CACHE);
+    if (!raw) return null;
+    const all = JSON.parse(raw);
+    const entry = all[marketCacheKey(item)];
+    if (!entry) return null;
+    if (Date.now() - entry.t > MARKET_CACHE_TTL_MS) return null;
+    return entry;
+  } catch(e) { return null; }
+}
+function setCachedMarket(item, data) {
+  try {
+    const raw = localStorage.getItem(LS_MARKET_CACHE);
+    const all = raw ? JSON.parse(raw) : {};
+    all[marketCacheKey(item)] = { t: Date.now(), data };
+    const keys = Object.keys(all);
+    if (keys.length > 30) {
+      const sorted = keys.sort((a,b) => all[a].t - all[b].t);
+      for (let i = 0; i < keys.length - 30; i++) delete all[sorted[i]];
+    }
+    localStorage.setItem(LS_MARKET_CACHE, JSON.stringify(all));
+  } catch(e) {}
+}
+
+// ── Main fetch ─────────────────────────────────────────
+async function fetchMarketData(forceRefresh = false) {
+  const item = getActiveItem();
+  if (!item) return;
+  const comp = computeItem(item);
+  let apiKey = getApiKey();
+
+  if (!apiKey) {
+    promptForNewKey();
+    apiKey = getApiKey();
+    if (!apiKey) return;
+  }
+
+  if (!forceRefresh) {
+    const cached = getCachedMarket(item);
+    if (cached) {
+      marketState = { kind: 'loaded', data: cached.data, cached: true, fetchedAt: cached.t };
+      renderMarketCard();
+      return;
+    }
+  }
+
+  marketState = { kind: 'loading' };
+  renderMarketCard();
+
+  try {
+    const data = await callMarketApi(item, comp, apiKey);
+    setCachedMarket(item, data);
+    marketState = { kind: 'loaded', data, cached: false, fetchedAt: Date.now() };
+  } catch (e) {
+    marketState = { kind: 'error', err: e.message || 'Unknown error' };
+  }
+  renderMarketCard();
+}
+
+async function callMarketApi(item, comp, apiKey) {
+  const channelLabel = { direct: 'D2C / direct to consumer', retailer: 'sold through retail shops', distributor: 'distributed', dist_retailer: 'full distribution chain' }[item.channel] || 'sold direct';
+  const typeLabel = { bundle: 'kit/bundle', rebranded: 'rebranded product', resale: 'reseller item', manufactured: 'manufactured product' }[item.type] || 'product';
+
+  const partsList = item.parts
+    .filter(p => p.level === 0 && p.name)
+    .slice(0, 8)
+    .map(p => p.name)
+    .join(', ');
+
+  const prompt = `I need real-world market price benchmarks for a product I'm pricing.
+
+PRODUCT DETAILS:
+- Name: ${item.name || 'Unnamed'}
+- Type: ${typeLabel}
+- Channel: ${channelLabel}
+- Region: India (prices in INR ₹)
+${partsList ? `- Key components: ${partsList}` : ''}
+${comp.mrp > 0 ? `- Current MRP under consideration: ₹${Math.round(comp.mrp).toLocaleString('en-IN')}` : ''}
+${comp.cogs > 0 ? `- COGS: ₹${Math.round(comp.cogs).toLocaleString('en-IN')}` : ''}
+
+TASK:
+Use Google Search to find 5-8 SIMILAR or COMPETING products currently sold in India. Search Indian e-commerce sites like Amazon.in, Flipkart, robu.in, robocraze.com, evelta.com, Quartz Components, etc. For STEM/educational products also check vendors like Aerolab, ScienceUtsav, Smartivity.
+
+For each product found, capture: actual selling price in ₹ (no GST mentioned separately), source name, source URL, and a brief 1-line product name.
+
+OUTPUT: Respond with ONLY a valid JSON object (no markdown fences, no commentary, no preamble) with this exact shape:
+{
+  "products": [
+    {"name": "product name", "price_inr": 1234, "source": "Amazon.in", "url": "https://..."}
+  ],
+  "summary": "1-2 sentence positioning insight comparing the user's price to the market"
+}
+
+If you cannot find enough comparable products, return whatever you find with a summary explaining the gap.`;
+
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    tools: [{ google_search: {} }],
+    generationConfig: { temperature: 0.4 },
+  };
+
+  let lastErr = null;
+  // Try each model in order; for each, retry on transient errors with exponential backoff
+  for (let m = 0; m < MARKET_MODELS.length; m++) {
+    const model = MARKET_MODELS[m];
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        // Update loading status with current attempt info
+        if (m > 0 || attempt > 0) {
+          updateLoadingStatus(`Trying ${model}${attempt > 0 ? ` (retry ${attempt})` : ''}…`);
+        }
+        return await callOnce(model, body, apiKey);
+      } catch (e) {
+        lastErr = e;
+        // Non-retriable: invalid key, blocked content, parse errors → stop immediately
+        if (e.nonRetriable) throw e;
+        // If transient (overloaded / 503 / rate limited), wait and retry
+        const isTransient = e.transient === true;
+        if (!isTransient) break; // move to next model
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = 1000 * Math.pow(2, attempt);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+    // Move to next model if available
+  }
+  throw lastErr || new Error('All models failed.');
+}
+
+async function callOnce(model, body, apiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!r.ok) {
+    let detail = '';
+    try { const errBody = await r.json(); detail = errBody?.error?.message || JSON.stringify(errBody); } catch(e) {}
+    const err = new Error(`API error ${r.status}: ${detail || 'unknown'}`);
+    if (r.status === 400 && /API_KEY/i.test(detail)) { err.message = 'Invalid API key. Click ⚙ to update.'; err.nonRetriable = true; throw err; }
+    if (r.status === 401 || r.status === 403)        { err.message = 'API key rejected. Click ⚙ to update.';   err.nonRetriable = true; throw err; }
+    if (r.status === 429)                             { err.transient = true; throw err; }
+    if (r.status === 503 || r.status === 502 || r.status === 500) { err.transient = true; throw err; }
+    throw err;
+  }
+
+  const resp = await r.json();
+  const candidate = resp.candidates && resp.candidates[0];
+  if (!candidate) {
+    if (resp.promptFeedback?.blockReason) {
+      const e = new Error('Blocked: ' + resp.promptFeedback.blockReason); e.nonRetriable = true; throw e;
+    }
+    const e = new Error('Empty response from API.'); e.transient = true; throw e;
+  }
+
+  const text = (candidate.content?.parts || [])
+    .filter(p => p.text)
+    .map(p => p.text)
+    .join('\n')
+    .trim();
+
+  if (!text) { const e = new Error('Empty text in response.'); e.transient = true; throw e; }
+
+  const parsed = parseMarketJson(text);
+
+  const grounding = candidate.groundingMetadata;
+  if (grounding?.searchEntryPoint?.renderedContent) {
+    parsed.searchSuggestions = grounding.searchEntryPoint.renderedContent;
+  }
+  if (grounding?.groundingChunks) {
+    parsed.groundingSources = grounding.groundingChunks
+      .filter(c => c.web && c.web.uri)
+      .map(c => ({ uri: c.web.uri, title: c.web.title || c.web.uri }));
+  }
+  parsed.modelUsed = model;
+  return parsed;
+}
+
+function updateLoadingStatus(msg) {
+  const el = document.getElementById('market-loading-msg');
+  if (el) el.textContent = msg;
+}
+
+function parseMarketJson(text) {
+  let cleaned = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*$/g, '').trim();
+  const first = cleaned.indexOf('{');
+  const last  = cleaned.lastIndexOf('}');
+  if (first === -1 || last === -1) throw new Error('No JSON found in response.');
+  cleaned = cleaned.slice(first, last + 1);
+
+  let parsed;
+  try { parsed = JSON.parse(cleaned); }
+  catch (e) { throw new Error('Failed to parse response: ' + e.message); }
+
+  const products = (parsed.products || []).filter(p => p && p.name && typeof p.price_inr === 'number' && p.price_inr > 0);
+  if (products.length === 0) throw new Error('No valid product data returned. Try refreshing or refining the kit name.');
+  return { products, summary: parsed.summary || '' };
+}
+
+// ── Render ─────────────────────────────────────────────
+function renderMarketCard() {
+  const body = document.getElementById('market-body');
+  if (!body) return;
+
+  if (marketState.kind === 'loading') {
+    body.innerHTML = `
+      <div class="market-loading">
+        <div class="market-spinner"></div>
+        <div class="market-loading-msg" id="market-loading-msg">Searching the web for similar products…</div>
+        <div class="market-loading-sub">This usually takes 8–20 seconds. Auto-retries if the model is busy.</div>
+      </div>`;
+    return;
+  }
+
+  if (marketState.kind === 'error') {
+    const e = marketState.err || '';
+    const isOverloaded = /503|overload|high demand|busy|temporarily/i.test(e);
+    const isRateLimit  = /429|rate limit/i.test(e);
+    const friendly = isOverloaded
+      ? `Google's servers are overloaded right now (we tried 3 fallback models). This usually clears within a few minutes — wait 30–60 seconds and hit retry.`
+      : isRateLimit
+      ? `You've hit the free-tier rate limit (~15 requests per minute). Wait a minute and retry.`
+      : e;
+    body.innerHTML = `
+      <div class="market-error">
+        <strong>Couldn't fetch market data</strong>
+        ${esc(friendly)}
+      </div>
+      <div style="margin-top:10px;display:flex;gap:6px">
+        <button class="market-mini-btn" onclick="fetchMarketData(true)">↻ Retry</button>
+        <button class="market-mini-btn" onclick="openApiKeySettings()">⚙ API Key</button>
+      </div>`;
+    return;
+  }
+
+  if (marketState.kind === 'loaded' && marketState.data) {
+    body.innerHTML = renderMarketLoaded(marketState.data);
+    return;
+  }
+
+  // idle
+  const apiKey = getApiKey();
+  body.innerHTML = `
+    <div class="market-empty">
+      <p>Pull live competitor prices from Indian e-commerce sites to validate your MRP against the actual market.</p>
+      <button class="market-fetch-btn" onclick="fetchMarketData()">
+        🔍 Fetch Market Benchmarks
+      </button>
+      <div class="market-cost-note">
+        ${apiKey
+          ? `Uses your Gemini API key (${maskKey(apiKey)}) — <strong style="color:var(--green)">free</strong> on Google AI Studio's free tier.`
+          : `Requires a free Gemini API key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--blue)">aistudio.google.com</a> — no credit card needed.`}
+      </div>
+    </div>`;
+}
+
+function renderMarketLoaded(data) {
+  const item = getActiveItem();
+  const comp = computeItem(item);
+  const prices = data.products.map(p => p.price_inr).sort((a,b) => a - b);
+  const min = prices[0];
+  const max = prices[prices.length - 1];
+  const median = prices.length % 2
+    ? prices[Math.floor(prices.length / 2)]
+    : Math.round((prices[prices.length / 2 - 1] + prices[prices.length / 2]) / 2);
+
+  // Position user's MRP in the range
+  const yourMrp = comp.mrp;
+  let positionPct = 50, posLabel = 'middle';
+  let positionText = '';
+  if (yourMrp > 0 && max > min) {
+    const clamped = Math.max(min, Math.min(max, yourMrp));
+    positionPct = ((clamped - min) / (max - min)) * 100;
+    if (yourMrp < min)        { posLabel = 'below market'; positionText = `Your MRP <strong>${fmt(yourMrp)}</strong> is <strong style="color:var(--green)">${Math.round((1 - yourMrp/min)*100)}% below</strong> the cheapest competitor (${fmt(min)}). Strong undercut — confirm value perception.`; }
+    else if (yourMrp > max)   { posLabel = 'above market'; positionText = `Your MRP <strong>${fmt(yourMrp)}</strong> is <strong style="color:var(--red)">${Math.round((yourMrp/max - 1)*100)}% above</strong> the priciest competitor (${fmt(max)}). Premium positioning — needs justification.`; }
+    else if (yourMrp < median) { posLabel = 'budget tier'; positionText = `Your MRP sits in the <strong>budget half</strong> (median ${fmt(median)}). Room to raise if quality matches competitors.`; }
+    else                       { posLabel = 'premium tier'; positionText = `Your MRP sits in the <strong>premium half</strong> (median ${fmt(median)}). Validate you're delivering proportionate value.`; }
+  } else if (yourMrp === 0) {
+    positionText = `Set your MRP to see how it compares to the market.`;
+  }
+
+  const now = marketState.fetchedAt ? new Date(marketState.fetchedAt) : new Date();
+  const ageMins = Math.round((Date.now() - (marketState.fetchedAt || Date.now())) / 60000);
+  const cacheLabel = marketState.cached
+    ? `Cached · ${ageMins < 1 ? 'just now' : ageMins < 60 ? ageMins + ' min ago' : Math.round(ageMins/60) + 'h ago'}`
+    : `Fresh · ${now.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'})}`;
+
+  return `
+    <div class="market-stats-grid">
+      <div class="market-stat">
+        <div class="market-stat-label">Min</div>
+        <div class="market-stat-val" style="color:var(--green)">${fmt(min)}</div>
+      </div>
+      <div class="market-stat">
+        <div class="market-stat-label">Median</div>
+        <div class="market-stat-val">${fmt(median)}</div>
+      </div>
+      <div class="market-stat">
+        <div class="market-stat-label">Max</div>
+        <div class="market-stat-val" style="color:var(--red)">${fmt(max)}</div>
+      </div>
+    </div>
+
+    ${yourMrp > 0 ? `
+    <div class="market-position-bar">
+      <div class="market-position-range" style="left:0;width:100%"></div>
+      <div class="market-position-marker" style="left:calc(${positionPct.toFixed(1)}% - 1.5px)" title="Your MRP: ${fmt(yourMrp)}"></div>
+    </div>
+    <div class="market-position-labels">
+      <span>${fmt(min)}</span>
+      <span style="color:var(--lime);font-weight:700">▲ Your ${fmt(yourMrp)}</span>
+      <span>${fmt(max)}</span>
+    </div>
+    ` : ''}
+
+    <div class="market-position-text">${positionText}</div>
+
+    ${data.summary ? `<div class="market-summary"><strong>Insight:</strong> ${esc(data.summary)}</div>` : ''}
+
+    <div class="market-products-list">
+      <div class="market-products-title">Comparable Products (${data.products.length})</div>
+      ${data.products.map(p => `
+        <div class="market-product">
+          <div class="market-product-name">
+            ${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)}</a>` : esc(p.name)}
+            <div class="market-product-source">${esc(p.source || '—')}</div>
+          </div>
+          <div class="market-product-price">${fmt(p.price_inr)}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="market-actions">
+      <div class="market-actions-left">
+        <button class="market-mini-btn" onclick="fetchMarketData(true)">↻ Refresh</button>
+        <button class="market-mini-btn" onclick="marketState={kind:'idle'};renderMarketCard()">Hide</button>
+      </div>
+      <span class="market-cache-tag">${cacheLabel}</span>
+    </div>
+
+    ${data.searchSuggestions ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">${data.searchSuggestions}</div>` : ''}
+  `;
+}
+
+// Auto-load cached market data when item changes
+function checkCachedMarket() {
+  const item = getActiveItem();
+  if (!item) return;
+  const cached = getCachedMarket(item);
+  if (cached) {
+    marketState = { kind: 'loaded', data: cached.data, cached: true, fetchedAt: cached.t };
+  } else {
+    marketState = { kind: 'idle' };
+  }
+  renderMarketCard();
+}
+
+// ── Bootstrap ────────────────────────────────────────────────
+loadInventoryFromLocalStorage();
+loadMasterConfig();
+init();
+checkCachedMarket();
+</script>
+</body>
+</html>
