@@ -1,6 +1,6 @@
-# Aerolab Kit Pricing Calculator
+# Kit Pricing Calculator
 
-A standalone, browser-based pricing tool for Aerolab/Aeroman Technologies. Built for STEM kits, bundles, and any product where you need to think through BOM costs, channel margins, MRP positioning, and quotations — all in one place, with no backend.
+A standalone, browser-based pricing tool. Built for STEM kits, bundles, and any product where you need to think through BOM costs, channel margins, MRP positioning, and quotations — all in one place, with no backend.
 
 **Live:** https://<your-username>.github.io/aerolab-pricing/
 
@@ -35,4 +35,4 @@ Everything runs in your browser. Inventory data, API keys, market cache, and mas
 
 ## License
 
-Internal use by Aerolab / Aeroman Technologies / Clickva.
+Internal use by Kroniek.
