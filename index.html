@@ -2588,14 +2588,25 @@ function insertInventoryItemAsBOM(idx) {
   const it = inventory[idx];
   if (!it) return;
   const item = getActiveItem();
+  const resolvedCost = resolveDisplayCost(it);
   item.parts.push({
     id: mkId(), parentId: null, level: 0,
-    name: it.name, type: it.type || 'sourced', cost: it.cost || 0, qty: 1, collapsed: false
+    name: it.name, type: it.type || 'sourced', cost: resolvedCost, qty: 1, collapsed: false
   });
   closeInventoryBrowser();
   renderBOM();
   recalc();
-  showInvMsg(`Added "${it.name}" to BOM.`, 'ok');
+  showInvMsg(`Added "${it.name}" to BOM at ${fmt(resolvedCost)}.`, 'ok');
+}
+
+// Resolves the best price field to use as a "cost" when inserting an inventory item.
+// Many sheets have only Selling Price or MRP and no plain Cost column — use those as fallback.
+function resolveDisplayCost(it) {
+  if (it.cost && it.cost > 0) return it.cost;
+  if (it.sellingPrice && it.sellingPrice > 0) return it.sellingPrice;
+  if (it.mrp && it.mrp > 0) return it.mrp;
+  if (it.bomCost && it.bomCost > 0) return it.bomCost;
+  return 0;
 }
 
 // ── Autocomplete on BOM rows ───────────────────────────
@@ -2622,7 +2633,7 @@ function showAutocomplete(input, partId) {
   dd.innerHTML = acFilteredItems.map((it, i) => `
     <div class="ac-item" data-idx="${i}" onmousedown="event.preventDefault()" onclick="applyAcItem(${i})">
       <div class="ac-name">${esc(it.name)}</div>
-      <div class="ac-meta">${fmt(it.cost)} · ${esc(it.type)}${it.category ? ' · ' + esc(it.category) : ''}${it.sku ? ' · ' + esc(it.sku) : ''}</div>
+      <div class="ac-meta">${fmt(resolveDisplayCost(it))} · ${esc(it.type)}${it.category ? ' · ' + esc(it.category) : ''}${it.sku ? ' · ' + esc(it.sku) : ''}</div>
     </div>`).join('');
   dd.classList.add('show');
 }
@@ -2640,7 +2651,7 @@ function applyAcItem(idx) {
   const p = item.parts.find(x => x.id === partId);
   if (!p) { hideAutocomplete(); return; }
   p.name = it.name;
-  p.cost = it.cost || 0;
+  p.cost = resolveDisplayCost(it);
   if (it.type) p.type = it.type;
   hideAutocomplete();
   renderBOM();
